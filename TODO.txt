@@ -1,0 +1,6 @@
+ANSI Color library for shell with intuitive API
+small careful shell-based json encoder for escaping ansi codes that break json
+Organize backlog of commands to implement
+Custom color palettes for commands
+
+readme that shows a gif of it working

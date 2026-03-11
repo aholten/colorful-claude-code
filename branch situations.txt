@@ -1,0 +1,12 @@
+ Command contains newlines that could separate multiple commands
+ Shell expansion syntax in paths requires manual approval
+newline, |, || 
+ This command uses shell operators that require approval for safety
+
+
+needs to be more user-friendly:
+ Hook PreToolUse:Bash requires confirmation for this command:
+ Bash Annotator: Nerd Fonts not detected. Install FiraCode Nerd Font and
+ configure your terminal?
+
+wrong size after font switch

@@ -1,0 +1,115 @@
+File & Directory
+ls, cp, mv, rm, mkdir, rmdir, find, locate, tree, du, df, stat, touch, ln
+Text Processing
+cat, grep, sed, awk, cut, sort, uniq, wc, head, tail, tr, diff, patch, tee
+Network
+curl, wget, ssh, scp, rsync, ping, nmap, netstat, dig, nslookup, nc
+Process
+ps, top, htop, kill, killall, nice, nohup, time, watch
+Archives
+tar, zip, unzip, gzip, gunzip, bzip2, xz
+System Info
+uname, whoami, id, uptime, date, hostname, env, which, whereis
+Dev Tools
+git, make, gcc, node, python, docker, jq, vim, nano
+
+The builtins by contrast are the finite, known set: cd, echo, export, source, ., alias, unset, read, eval, exec, exit, pwd, set, shift, trap, wait, return, break, continue, type, hash, umask, ulimit
+
+
+----
+
+Version Control
+git, gh (GitHub CLI), hg
+Package Managers
+npm, npx, yarn, pnpm, pip, pip3, poetry, cargo, gem, brew, apt, apt-get
+Runtimes & Interpreters
+node, python, python3, ruby, go, rust, java, bun, deno
+Build & Task Runners
+make, cmake, gradle, mvn, rake, just
+Containers & Cloud
+docker, docker-compose, kubectl, terraform, aws, gcloud, az, helm
+Code Quality
+eslint, prettier, tsc, ruff, black, mypy, pytest, jest, vitest
+File & Search
+find, grep, rg (ripgrep), fd, fzf, sed, awk
+Text Editors (invoked from shell)
+vim, nvim, nano, code, cursor
+Compilers & Linkers
+gcc, g++, clang, rustc, go
+Misc Dev
+jq, yq, curl, wget, openssl, ssh, scp, rsync, ffmpeg, convert
+
+----
+
+What Claude Code actually tends to run:
+Very common
+git, npm/npx/pnpm/yarn, node, python/python3, pip, cargo, go, make
+File ops
+find, grep, rg, sed, awk, cat, cp, mv, rm, mkdir, chmod
+Checking things
+which, ls, pwd, echo, env, whoami, uname, date
+Build/test
+tsc, jest, pytest, vitest, eslint, prettier, cargo test, go test
+Docker
+docker, docker-compose
+curl/jq
+curl, jq — very commonly used to hit APIs or parse JSON output
+
+Everything else I listed before is mostly human-invoked tooling. Claude Code via bash is really doing: git operations, package management, running tests/builds, file manipulation, and the occasional curl. That's probably 95% of it.
+
+Runtimes already missing
+ruby, perl, php, lua
+JVM
+java, kotlin, scala, clojure — invoked via mvn, gradle, sbt, lein
+dotnet
+dotnet — covers C#, F#, VB
+Systems
+zig, swift, nim
+Shell itself
+bash, sh, zsh, fish
+Data / Scientific
+R, julia, Rscript
+
+Realistically though, for Claude Code's bash tool the ones that actually matter beyond what we covered are probably just ruby, java/gradle/mvn, dotnet, and swift — those have large enough userbases that Claude Code regularly works in those ecosystems.
+zig and julia are growing but still niche in terms of Claude Code sessions.
+
+Common CLI tools you'd invoke with ocaml:
+ocaml, ocamlopt, dune (build tool, very standard), opam (package manager)
+dune in particular is what Claude Code would actually run — it's the dominant build tool and you'd see dune build, dune test, dune exec constantly in an OCaml project.
+
+Haskell — the obvious sibling to OCaml. ghc/ghci, and then cabal and stack as the build/package tools. stack build, stack test is what you'd actually see in sessions, much like dune build.
+Elixir/Erlang — mix is the one that matters. mix test, mix deps.get, mix compile. It's the dune/cargo equivalent. elixir, iex, erl exist but mix dominates actual CLI usage.
+Dart/Flutter — dart and flutter. Growing fast because of Flutter's mobile/web reach. flutter build, flutter test, dart analyze.
+Database CLIs — this whole category is absent from your lists: psql, mysql, sqlite3, redis-cli, mongosh. Claude Code hits these regularly when working on backend projects — running migrations, checking schemas, seeding data.
+Version managers — nvm, pyenv, rbenv, rustup. These come up when Claude Code needs to switch or verify runtime versions.
+Monorepo tools — nx, turbo, lerna
+
+Bundlers & dev servers — this is the most glaring omission. vite, webpack, esbuild, rollup, parcel. In web projects Claude Code runs vite dev, vite build constantly. These are as common as tsc or jest.
+ORM & migration CLIs — prisma (prisma migrate, prisma generate), sequelize-cli, typeorm, alembic, knex. Adjacent to your database CLIs but distinct. Prisma especially is everywhere in Node backend work.
+E2E testing — playwright, cypress. Different category from unit test runners. npx playwright test comes up a lot.
+Serverless & deploy CLIs — vercel, netlify, fly, wrangler (Cloudflare Workers). Real projects use these and Claude Code does invoke them.
+Debugging — gdb, lldb, strace. Niche for Claude Code but not zero.
+Protobuf — protoc, buf. Relevant in gRPC-heavy codebases.
+Utility commands you skipped — xargs (surprisingly absent given how common find | xargs is), chmod/chown, base64, sha256sum/md5sum, mktemp, realpath, dirname/basename, file. These are the plumbing Claude Code uses constantly but nobody thinks to list.
+Git adjacent — pre-commit, git-lfs, husky. Not git itself but invoked alongside it.
+Wasm toolchain — wasm-pack, wasm-opt. Niche but growing.
+Of these, bundlers and xargs are the most "how did we miss that" ones. Prisma is probably next.
+
+Bundlers & Dev Servers
+vite, webpack, esbuild, rollup, parcel
+ORM & Migration CLIs
+prisma, sequelize-cli, typeorm, alembic, knex
+E2E Testing
+playwright, cypress
+Serverless & Deploy CLIs
+vercel, netlify, fly, wrangler
+Debugging
+gdb, lldb, strace
+Protobuf
+protoc, buf
+Utility Commands
+xargs, chmod, chown, base64, sha256sum, md5sum, mktemp, realpath, dirname, basename, file, tee, envsubst
+Git Adjacent
+pre-commit, git-lfs, husky
+Wasm Toolchain
+wasm-pack, wasm-opt

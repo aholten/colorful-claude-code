@@ -1,0 +1,70 @@
+Shell Builtins: cd, echo, export, source, ., alias, unset, read, eval, exec, exit, pwd, set, shift, trap, wait, return, break, continue, type, hash, umask, ulimit
+File & Directory: ls, cp, mv, rm, mkdir, rmdir, find, locate, tree, du, df, stat, touch, ln
+Text Processing: cat, grep, sed, awk, cut, sort, uniq, wc, head, tail, tr, diff, patch, tee
+Network: curl, wget, ssh, scp, rsync, ping, nmap, netstat, dig, nslookup, nc
+Process: ps, top, htop, kill, killall, nice, nohup, time, watch
+Archives: tar, zip, unzip, gzip, gunzip, bzip2, xz
+System Info: uname, whoami, id, uptime, date, hostname, env, which, whereis
+Version Control: git, gh, hg
+Git Adjacent: pre-commit, git-lfs, husky
+Package Managers: npm, npx, yarn, pnpm, pip, pip3, poetry, cargo, gem, brew, apt, apt-get
+Version Managers: nvm, pyenv, rbenv, rustup
+Runtimes & Interpreters: node, python, python3, ruby, perl, php, lua, bun, deno
+JVM: java, kotlin, scala, clojure, mvn, gradle, sbt, lein
+Dotnet: dotnet
+Systems Languages: zig, swift, nim
+Compilers & Linkers: gcc, g++, clang, rustc, go
+OCaml: ocaml, ocamlopt, dune, opam
+Haskell: ghc, ghci, cabal, stack
+Elixir/Erlang: elixir, iex, erl, mix
+Dart/Flutter: dart, flutter
+Data/Scientific: R, julia, Rscript
+Shell Itself: bash, sh, zsh, fish
+Build & Task Runners: make, cmake, gradle, mvn, rake, just, celery
+Bundlers & Dev Servers: vite, webpack, esbuild, rollup, parcel, mkdocs
+Monorepo Tools: nx, turbo, lerna
+Code Quality: eslint, prettier, tsc, ruff, black, mypy, pytest, jest, vitest
+Security & Scanning: snyk, trivy, grype, semgrep, checkov, gitleaks, vault
+E2E Testing: playwright, cypress
+ORM & Migration CLIs: prisma, sequelize-cli, typeorm, alembic, knex, liquibase
+Containers & Cloud: docker, docker-compose, kubectl, terraform, ansible, vagrant, packer, kustomize, argocd, aws, gcloud, az, helm
+Serverless & Deploy CLIs: vercel, netlify, fly, wrangler
+Database CLIs: psql, mysql, sqlite3, redis-cli, mongosh
+Text Editors: vim, nvim, nano, code, cursor
+File & Search: find, grep, rg, fd, fzf, sed, awk
+Utility Commands: xargs, chmod, chown, base64, sha256sum, md5sum, mktemp, realpath, dirname, basename, file, envsubst
+Debugging: gdb, lldb, strace
+Protobuf: protoc, buf
+Wasm Toolchain: wasm-pack, wasm-opt
+Misc Dev: jq, yq, curl, wget, openssl, ssh, scp, rsync, ffmpeg, convert, cookiecutter, 
+Computer graphics: blender, inkscape
+
+
+---
+
+Build Systems: bazel, buck2, ninja, meson, pants — these are widely used in larger codebases and monorepos.
+Python Ecosystem: uv (rapidly becoming the default), conda, pipx, tox, nox, hatch, pdm, flit, virtualenv, twine, bandit, pylint, flake8, isort, autopep8, pyright, pydantic (CLI), pip-compile/pip-tools.
+Go Tooling: go itself is under compilers, but golangci-lint, air, delve/dlv (debugger) are standalone tools worth listing.
+JS/TS Ecosystem: tsx, ts-node, swc, biome, oxlint, gulp, grunt, storybook, create-react-app, degit, corepack, fnm, volta. Also framework CLIs: next, nuxt, astro, ng (Angular), gatsby, remix, svelte-kit.
+CSS Tooling: sass, less, postcss, tailwindcss (CLI), stylelint.
+PHP: composer, phpstan, phpunit, laravel, artisan.
+Ruby (beyond gem/rake): bundle/bundler, rubocop, rspec, rails.
+Mobile/Cross-Platform: adb, xcodebuild, fastlane, expo, react-native, pod (CocoaPods), gradle is listed but sdkmanager/avdmanager aren't.
+Linting/Formatting missing from Code Quality: shellcheck, hadolint, shfmt, clang-format, gofmt/goimports, rustfmt, taplo, dprint, yamllint, markdownlint, actionlint, sqlfluff.
+Document Conversion & Typesetting: pandoc (big miss — very commonly invoked), pdflatex, xelatex, lualatex, latexmk, bibtex, typst.
+Diagram/Visualization: dot/graphviz, plantuml, mmdc (mermaid-cli), d2, gnuplot.
+Data/Structured File Processing: xmllint/xmlstarlet, csvkit/csvtool, tomlq, htmlq, pup.
+Profiling & Benchmarking: valgrind, perf, hyperfine, ab (ApacheBench), wrk, k6, vegeta.
+Tunneling & Local Dev Servers: ngrok, mkcert, caddy, serve (npm).
+SaaS/Platform CLIs: firebase, supabase, stripe, heroku, railway, amplify, digitalocean/doctl, pulumi, cdk (AWS CDK).
+GitLab/Bitbucket CLIs: glab.
+Version/Tool Managers: asdf, mise (formerly rtx), proto, volta, fnm, sdkman.
+Git Hooks (beyond husky): lefthook, lint-staged, commitizen/cz.
+Secrets & Certs: gpg, sops, age, cosign, certbot, step.
+CI/Local Runners: act (run GitHub Actions locally).
+Terminal Multiplexers & Pagers: tmux, screen, less, more.
+System/Diagnostic: sudo, lsof, ss, ip, traceroute, mtr, free, lscpu, dmesg, journalctl, systemctl, strings, man.
+Binary Analysis: objdump, nm, readelf, strip, ar, nasm.
+Assembly: nasm, as, yasm.
+Env Management: direnv, dotenv, envsubst is listed but direnv isn't.
+Lisp/Scheme/Other Langs: sbcl, racket, guile, chez, v (Vlang), crystal, gleam.

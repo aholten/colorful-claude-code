@@ -1,0 +1,1 @@
+Compound commands with cd and git require approval to prevent bare repository attacks

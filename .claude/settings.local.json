@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-tree:*)",
+      "Bash(bash test.sh mapping 2>&1)",
+      "Bash(bash test.sh 2>&1)"
+    ]
+  }
+}

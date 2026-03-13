@@ -1,8 +1,10 @@
-# Colorful Bash for Claude Code
+# Claude Code Emoji Explainer
+
+Enhanced understanding at a glance.
 
 When Claude Code runs terminal commands on your behalf, it can be hard to follow what's happening — especially if you're not familiar with the command line. Commands flash by, and unless you already know what `grep`, `sed`, or `chmod` means, you're left wondering what just happened on your computer.
 
-Colorful Bash fixes this. It adds emoji and color-coded backgrounds to every command Claude Code runs, turning cryptic terminal text into something you can actually read at a glance.
+Claude Code Emoji Explainer fixes this. It adds emoji and color-coded backgrounds to every command Claude Code runs, turning cryptic terminal text into something you can actually read at a glance.
 
 Before:
 
@@ -91,8 +93,8 @@ No other dependencies. No Node.js, no Python, nothing to download.
 1. Clone this repository to wherever you keep your projects:
 
 ```bash
-git clone https://github.com/your-username/claude-code-colorful-bash.git
-cd claude-code-colorful-bash
+git clone https://github.com/your-username/claude-code-emoji-explainer.git
+cd claude-code-emoji-explainer
 ```
 
 2. Run the setup script:
@@ -130,7 +132,7 @@ The path will be the actual location of the script on your computer. No other fi
 To update to the latest version:
 
 ```bash
-cd claude-code-colorful-bash
+cd claude-code-emoji-explainer
 git pull
 ```
 
@@ -149,7 +151,7 @@ This removes the hook entry from your Claude Code settings file (local or global
 The plugin files stay on disk after uninstalling. If you want to remove everything completely, delete the project folder:
 
 ```bash
-rm -rf claude-code-colorful-bash
+rm -rf claude-code-emoji-explainer
 ```
 
 ## Testing
@@ -172,7 +174,7 @@ You can also run tests for specific components:
 ## Project structure
 
 ```
-claude-code-colorful-bash/
+claude-code-emoji-explainer/
 ├── scripts/
 │   ├── annotate-pre.sh   # Main hook — entry point called by Claude Code
 │   ├── parser.sh         # Splits commands into tokens

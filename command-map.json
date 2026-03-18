@@ -1,0 +1,151 @@
+{
+  "_description": "Command-to-emoji mapping organized by functional category. Colors are defined once per category, and each command references its category. This makes it easy to scan commands by what they DO, not just what they ARE. Edit this file however you want — add commands, change emoji, adjust colors. Changes take effect immediately, no reinstall needed.",
+
+  "default": { "emoji": "", "bg": 240, "fg": 255 },
+
+  "categories": {
+    "version_control":    { "bg": 202, "fg": 17,  "label": "git and other VCS commands" },
+    "file_navigation":    { "bg": 33,  "fg": 230, "label": "moving around and listing the filesystem" },
+    "file_reading":       { "bg": 252, "fg": 17,  "label": "reading file contents without modifying them" },
+    "file_create_update": { "bg": 34,  "fg": 230, "label": "creating, copying, moving, or modifying files" },
+    "file_delete":        { "bg": 196, "fg": 230, "label": "removing files — red means destructive" },
+    "searching":          { "bg": 178, "fg": 17,  "label": "finding files or content within files" },
+    "text_processing":    { "bg": 135, "fg": 230, "label": "transforming, filtering, or counting text" },
+    "building":           { "bg": 136, "fg": 230, "label": "compiling and building projects" },
+    "script_execution":   { "bg": 25,  "fg": 230, "label": "running scripts and language runtimes" },
+    "package_management": { "bg": 160, "fg": 230, "label": "installing and managing packages" },
+    "http":               { "bg": 23,  "fg": 230, "label": "HTTP requests" },
+    "networking":         { "bg": 39,  "fg": 17,  "label": "remote access, FTP, and network tools" },
+    "archiving":          { "bg": 208, "fg": 17,  "label": "compressing and extracting archives" },
+    "output":             { "bg": 37,  "fg": 230, "label": "printing and displaying text" },
+    "process_management": { "bg": 53,  "fg": 230, "label": "listing and managing processes" },
+    "elevated":           { "bg": 196, "fg": 230, "label": "running with elevated privileges" },
+    "containers":         { "bg": 62,  "fg": 230, "label": "container and orchestration tools" },
+    "operators":          { "bg": 235, "fg": 250, "label": "shell operators and command wrappers" }
+  },
+
+  "commands": {
+    "git":      { "emoji": "🔀", "cat": "version_control" },
+
+    "cd":       { "emoji": "📁", "cat": "file_navigation" },
+    "ls":       { "emoji": "📋", "cat": "file_navigation" },
+    "tree":     { "emoji": "🌳", "cat": "file_navigation" },
+    "pwd":      { "emoji": "📍", "cat": "file_navigation" },
+
+    "cat":      { "emoji": "🐱", "cat": "file_reading" },
+    "head":     { "emoji": "🔝", "cat": "file_reading" },
+    "tail":     { "emoji": "🔚", "cat": "file_reading" },
+    "less":     { "emoji": "📖", "cat": "file_reading" },
+    "more":     { "emoji": "📖", "cat": "file_reading" },
+
+    "touch":    { "emoji": "👆", "cat": "file_create_update" },
+    "mkdir":    { "emoji": "📂", "cat": "file_create_update" },
+    "cp":       { "emoji": "📄", "cat": "file_create_update" },
+    "mv":       { "emoji": "📤", "cat": "file_create_update" },
+    "chmod":    { "emoji": "🔒", "cat": "file_create_update" },
+    "chown":    { "emoji": "🔒", "cat": "file_create_update" },
+    "ln":       { "emoji": "🔗", "cat": "file_create_update" },
+
+    "rm":       { "emoji": "🗑",  "cat": "file_delete" },
+    "rmdir":    { "emoji": "🗑",  "cat": "file_delete" },
+
+    "grep":     { "emoji": "🔍", "cat": "searching" },
+    "find":     { "emoji": "🔎", "cat": "searching" },
+    "rg":       { "emoji": "🔍", "cat": "searching" },
+    "ag":       { "emoji": "🔍", "cat": "searching" },
+    "locate":   { "emoji": "🔎", "cat": "searching" },
+
+    "sed":      { "emoji": "✏",  "cat": "text_processing" },
+    "awk":      { "emoji": "✏",  "cat": "text_processing" },
+    "sort":     { "emoji": "📊", "cat": "text_processing" },
+    "wc":       { "emoji": "🔢", "cat": "text_processing" },
+    "cut":      { "emoji": "✂",  "cat": "text_processing" },
+    "tr":       { "emoji": "🔄", "cat": "text_processing" },
+    "uniq":     { "emoji": "🔢", "cat": "text_processing" },
+    "jq":       { "emoji": "🔧", "cat": "text_processing" },
+
+    "make":     { "emoji": "🔨", "cat": "building" },
+    "cmake":    { "emoji": "🔨", "cat": "building" },
+    "gcc":      { "emoji": "🔨", "cat": "building" },
+    "g++":      { "emoji": "🔨", "cat": "building" },
+
+    "node":     { "emoji": "🟢", "cat": "script_execution" },
+    "python":   { "emoji": "🐍", "cat": "script_execution" },
+    "python3":  { "emoji": "🐍", "cat": "script_execution" },
+    "ruby":     { "emoji": "💎", "cat": "script_execution" },
+    "bash":     { "emoji": "⚙",  "cat": "script_execution" },
+    "sh":       { "emoji": "⚙",  "cat": "script_execution" },
+    "java":     { "emoji": "☕", "cat": "script_execution" },
+    "javac":    { "emoji": "☕", "cat": "script_execution" },
+    "go":       { "emoji": "🔵", "cat": "script_execution" },
+    "cargo":    { "emoji": "🦀", "cat": "script_execution" },
+    "rustc":    { "emoji": "🦀", "cat": "script_execution" },
+    "deno":     { "emoji": "🦕", "cat": "script_execution" },
+    "bun":      { "emoji": "🍞", "cat": "script_execution" },
+    "perl":     { "emoji": "🐪", "cat": "script_execution" },
+
+    "npm":      { "emoji": "📦", "cat": "package_management" },
+    "npx":      { "emoji": "📦", "cat": "package_management" },
+    "yarn":     { "emoji": "🧶", "cat": "package_management" },
+    "pnpm":     { "emoji": "📦", "cat": "package_management" },
+    "pip":      { "emoji": "📦", "cat": "package_management" },
+    "pip3":     { "emoji": "📦", "cat": "package_management" },
+    "gem":      { "emoji": "📦", "cat": "package_management" },
+    "brew":     { "emoji": "🍺", "cat": "package_management" },
+    "apt":      { "emoji": "📥", "cat": "package_management" },
+    "apt-get":  { "emoji": "📥", "cat": "package_management" },
+    "yum":      { "emoji": "📥", "cat": "package_management" },
+    "dnf":      { "emoji": "📥", "cat": "package_management" },
+    "pacman":   { "emoji": "📥", "cat": "package_management" },
+
+    "curl":     { "emoji": "🌐", "cat": "http" },
+    "wget":     { "emoji": "🌐", "cat": "http" },
+    "http":     { "emoji": "🌐", "cat": "http" },
+
+    "ssh":      { "emoji": "🔑", "cat": "networking" },
+    "scp":      { "emoji": "🔑", "cat": "networking" },
+    "rsync":    { "emoji": "🔑", "cat": "networking" },
+    "ftp":      { "emoji": "🔑", "cat": "networking" },
+    "sftp":     { "emoji": "🔑", "cat": "networking" },
+    "ping":     { "emoji": "📡", "cat": "networking" },
+    "nc":       { "emoji": "📡", "cat": "networking" },
+    "netstat":  { "emoji": "📡", "cat": "networking" },
+
+    "tar":      { "emoji": "🗜",  "cat": "archiving" },
+    "zip":      { "emoji": "🤐", "cat": "archiving" },
+    "unzip":    { "emoji": "🤐", "cat": "archiving" },
+    "gzip":     { "emoji": "🗜",  "cat": "archiving" },
+    "gunzip":   { "emoji": "🗜",  "cat": "archiving" },
+    "7z":       { "emoji": "🗜",  "cat": "archiving" },
+
+    "echo":     { "emoji": "💬", "cat": "output" },
+    "printf":   { "emoji": "💬", "cat": "output" },
+
+    "kill":     { "emoji": "💀", "cat": "process_management" },
+    "ps":       { "emoji": "📊", "cat": "process_management" },
+    "top":      { "emoji": "📊", "cat": "process_management" },
+    "htop":     { "emoji": "📊", "cat": "process_management" },
+
+    "sudo":     { "emoji": "⚡", "cat": "elevated" },
+
+    "docker":   { "emoji": "🐳", "cat": "containers" },
+    "kubectl":  { "emoji": "☸",  "cat": "containers" },
+    "podman":   { "emoji": "🐳", "cat": "containers" }
+  },
+
+  "operators": {
+    "&&":     { "emoji": "✅" },
+    "||":     { "emoji": "⚠"  },
+    "|":      { "emoji": "🔗" },
+    ";":      { "emoji": "⏩" },
+    "xargs":  { "emoji": "🔧" },
+    "tee":    { "emoji": "🔀" },
+    "time":   { "emoji": "⏱"  },
+    "nohup":  { "emoji": "🛡"  },
+    "nice":   { "emoji": "📶" },
+    "renice": { "emoji": "📶" },
+    "env":    { "emoji": "🌍" },
+    "exec":   { "emoji": "⚡" },
+    "watch":  { "emoji": "👁"  }
+  }
+}

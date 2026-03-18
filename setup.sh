@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# setup.sh — Install the Colorful Bash hook for Claude Code
+# setup.sh — Register the hook in Claude Code settings (local or global)
 #
-# This script registers the annotate-pre.sh hook so that Claude Code
-# calls it every time it's about to run a Bash command.
-#
-# Usage: ./setup.sh
+# idempotent — running twice must not duplicate or corrupt the hook entry.
+# Must merge cleanly into any valid existing settings.json layout.
 
 set -euo pipefail
 

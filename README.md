@@ -201,6 +201,7 @@ The file `command-map.json` contains every command-to-emoji mapping. Each entry 
 
 You can edit this file to add new commands, change emoji, or adjust colors. Changes take effect immediately — no need to reinstall.
 
-## License
+## Author
 
-MIT
+Anthony Holten @aholten on GitHub
+

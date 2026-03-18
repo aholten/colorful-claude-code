@@ -278,6 +278,45 @@ SUBCMD_END"
     "CMD:echo 'hello && world'" \
     "$result"
 
+  # --- Multi-line commands ---
+
+  input=$'echo hello\necho world'
+  result=$(parse_multiline_command "$input" 2>/dev/null) || result="PARSE_ERROR"
+  expected="CMD:echo hello
+NEWLINE
+CMD:echo world"
+  assert_equals "parser: multi-line produces NEWLINE token" \
+    "$expected" \
+    "$result"
+
+  # --- Backslash continuation ---
+
+  input=$'echo hello \\\nworld'
+  result=$(parse_multiline_command "$input" 2>/dev/null) || result="PARSE_ERROR"
+  assert_equals "parser: backslash continuation joins lines" \
+    "CMD:echo hello  world" \
+    "$result"
+
+  # --- Multi-line with operators ---
+
+  input=$'cd /app && npm install\nnpm test'
+  result=$(parse_multiline_command "$input" 2>/dev/null) || result="PARSE_ERROR"
+  expected="CMD:cd /app
+OP:&&
+CMD:npm install
+NEWLINE
+CMD:npm test"
+  assert_equals "parser: multi-line with operators" \
+    "$expected" \
+    "$result"
+
+  # --- Single line still works via fast path ---
+
+  result=$(parse_multiline_command "git status" 2>/dev/null) || result="PARSE_ERROR"
+  assert_equals "parser: multiline func handles single line" \
+    "CMD:git status" \
+    "$result"
+
 fi
 
 # =========================================================================== #
@@ -308,7 +347,7 @@ if should_run "mapping"; then
     assert_contains "mapping: python has emoji" "🐍" "$result"
 
     result=$(lookup_command "rm" 2>/dev/null) || result="LOOKUP_ERROR"
-    assert_contains "mapping: rm has emoji" "🗑️" "$result"
+    assert_contains "mapping: rm has emoji" "🗑" "$result"
 
     result=$(lookup_command "cat" 2>/dev/null) || result="LOOKUP_ERROR"
     assert_contains "mapping: cat has emoji" "🐱" "$result"
@@ -371,12 +410,12 @@ CMD:npm install"
   assert_contains "renderer: compound has npm text" "npm" "$result"
   assert_contains "renderer: compound has && text" "&&" "$result"
 
-  # --- Variation selector present ---
+  # --- No variation selector (plain Unicode emoji for OS rendering) ---
 
   tokens="CMD:git status"
   result=$(echo "$tokens" | render_tokens 2>/dev/null | xxd -p | tr -d '\n') || result="RENDER_ERROR"
-  # U+FE0F is EF B8 8F in UTF-8 — xxd -p gives continuous hex
-  assert_contains "renderer: emoji has variation selector (FE0F)" "efb88f" "$result"
+  # U+FE0F (EF B8 8F) should NOT be present — we use plain Unicode, no presentation selectors
+  assert_not_contains "renderer: emoji has no variation selector (FE0F)" "efb88f" "$result"
 
   # --- Substitution markers rendered ---
 
@@ -408,6 +447,35 @@ SUBSHELL_END"
   result_visible=$(echo "$tokens" | render_tokens 2>/dev/null | cat -v) || result_visible="RENDER_ERROR"
   # Should end with reset code ESC[0m
   assert_contains "renderer: output ends with ANSI reset" "[0m" "$result_visible"
+
+  # --- Erase-to-EOL at end (prevents background bleed) ---
+
+  tokens="CMD:git status"
+  result_visible=$(echo "$tokens" | render_tokens 2>/dev/null | cat -v) || result_visible="RENDER_ERROR"
+  # Should end with ESC[K (erase to end of line) after reset
+  assert_contains "renderer: output ends with erase-to-EOL" "[K" "$result_visible"
+
+  # --- Multi-line rendering ---
+
+  tokens="CMD:echo hello
+NEWLINE
+CMD:echo world"
+  result=$(echo "$tokens" | render_tokens 2>/dev/null) || result="RENDER_ERROR"
+  # Output should contain a literal newline
+  line_count=$(echo "$result" | wc -l)
+  if [[ "$line_count" -ge 2 ]]; then
+    echo -e "${GREEN}[PASS]${RESET} renderer: multi-line output has multiple lines"
+    PASS=$((PASS + 1))
+  else
+    echo -e "${RED}[FAIL]${RESET} renderer: multi-line output has multiple lines"
+    echo "       expected >= 2 lines, got: $line_count"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # Each line before NEWLINE should have reset+erase
+  result_visible=$(echo "$tokens" | render_tokens 2>/dev/null | cat -v) || result_visible="RENDER_ERROR"
+  first_line=$(echo "$result_visible" | head -1)
+  assert_contains "renderer: multi-line first line has erase-to-EOL" "[K" "$first_line"
 
 fi
 
@@ -473,6 +541,22 @@ if should_run "hook"; then
     input='{"tool_name":"Bash","input":{"command":"grep -r \"pattern\" /tmp/*.log"}}'
     result=$(echo "$input" | bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
     assert_json_valid "hook: special chars produce valid JSON" "$result"
+
+    # --- Output includes hookSpecificOutput for PreToolUse ---
+
+    input='{"tool_name":"Bash","input":{"command":"git status"}}'
+    result=$(echo "$input" | bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
+    assert_contains "hook: output contains hookSpecificOutput" '"hookSpecificOutput"' "$result"
+    assert_contains "hook: hookSpecificOutput has PreToolUse event" '"hookEventName"' "$result"
+    assert_contains "hook: hookEventName value is PreToolUse" 'PreToolUse' "$result"
+
+    # --- Multi-line command (newline encoded as \n in JSON) ---
+
+    input='{"tool_name":"Bash","input":{"command":"echo hello\necho world"}}'
+    result=$(echo "$input" | bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
+    assert_json_valid "hook: multi-line command returns valid JSON" "$result"
+    # The systemMessage should contain literal \n (escaped newline) in the JSON
+    assert_contains "hook: multi-line output has newline escape" '\n' "$result"
 
   fi
 fi

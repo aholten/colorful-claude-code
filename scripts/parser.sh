@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
-# parser.sh — Command parser for claude-code-colorful-bash
-# Tokenizes bash commands into: CMD, OP, SUBCMD_START/END, SUBSHELL_START/END
+# parser.sh — Tokenize bash commands into CMD, OP, SUBCMD_START/END, SUBSHELL_START/END
 #
-# Usage: source this file, then call parse_command "<command_string>"
-# Output: newline-delimited tokens to stdout
-#
-# Token types:
-#   CMD:<command_text>     — a command segment (trimmed)
-#   OP:<operator>          — an operator (&&, ||, |, ;)
-#   SUBCMD_START           — start of $(...) or backtick command substitution
-#   SUBCMD_END             — end of command substitution
-#   SUBSHELL_START         — start of (...) subshell
-#   SUBSHELL_END           — end of subshell
+# preserve semantics across quotes, nesting, and operators.
+# Operators inside quotes must not split. $() inside double quotes must still trigger substitution.
+# Command wrappers (xargs, time, nohup, etc.) emit as OP so the wrapped command gets its own lookup.
 
 # _trim — remove leading/trailing whitespace
 _trim() {
@@ -22,11 +14,26 @@ _trim() {
 }
 
 # _emit_cmd — emit a CMD token if buffer is non-empty
+# Handles operator-like commands (xargs) by splitting them into OP + CMD
 _emit_cmd() {
   local buf="$1"
   buf=$(_trim "$buf")
   if [[ -n "$buf" ]]; then
-    echo "CMD:${buf}"
+    # Command wrappers act as operators: they take the next command as their argument
+    local first_word="${buf%% *}"
+    case "$first_word" in
+      xargs|tee|time|nohup|nice|renice|env|exec|watch)
+        echo "OP:${first_word}"
+        local rest="${buf#"$first_word"}"
+        rest=$(_trim "$rest")
+        if [[ -n "$rest" ]]; then
+          echo "CMD:${rest}"
+        fi
+        ;;
+      *)
+        echo "CMD:${buf}"
+        ;;
+    esac
   fi
 }
 
@@ -208,4 +215,50 @@ parse_command() {
 
   # Emit any remaining buffer
   _emit_cmd "$buf"
+}
+
+# join backslash-continuation lines into single logical lines,
+# then parse each line independently with NEWLINE tokens between them.
+parse_multiline_command() {
+  local input="$1"
+
+  # If no newlines, fast path to single-line parser
+  if [[ "$input" != *$'\n'* ]]; then
+    parse_command "$input"
+    return
+  fi
+
+  # Split into lines, join backslash continuations
+  local -a lines=()
+  local accum=""
+  while IFS= read -r line; do
+    if [[ "$line" == *'\' ]]; then
+      # Strip trailing backslash and accumulate
+      accum+="${line%\\} "
+    else
+      accum+="$line"
+      lines+=("$accum")
+      accum=""
+    fi
+  done <<< "$input"
+  # Catch any trailing accumulator (unterminated continuation)
+  if [[ -n "$accum" ]]; then
+    lines+=("$accum")
+  fi
+
+  local first=1
+  for line in "${lines[@]}"; do
+    # Skip empty lines
+    local trimmed
+    trimmed=$(_trim "$line")
+    if [[ -z "$trimmed" ]]; then
+      continue
+    fi
+
+    if [[ $first -eq 0 ]]; then
+      echo "NEWLINE"
+    fi
+    first=0
+    parse_command "$line"
+  done
 }

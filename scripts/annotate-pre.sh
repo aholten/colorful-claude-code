@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# annotate-pre.sh — PreToolUse hook for Claude Code
-# Reads JSON from stdin, annotates Bash commands, emits JSON to stdout
+# annotate-pre.sh — PreToolUse hook entry point
 #
-# This is the main entry point registered as a Claude Code hook.
-# Input:  {"tool_name":"Bash","input":{"command":"..."}, ...}
-# Output: {"systemMessage": "<annotated command>"} or empty for non-Bash tools
+# extract command from hook JSON → parse → render → re-escape → emit valid JSON
+# Must be a no-op for non-Bash tools. Output must always be parseable JSON.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/parser.sh"
@@ -13,49 +11,85 @@ source "$SCRIPT_DIR/renderer.sh"
 # Read all of stdin
 input=$(cat)
 
+# extract JSON string values without external deps (no jq).
+# Must handle escaped quotes correctly.
+_extract_json_string() {
+  local json="$1" key="$2"
+  local pattern="\"${key}\"[[:space:]]*:[[:space:]]*\""
+
+  # Find where the value starts
+  if [[ ! "$json" =~ $pattern ]]; then
+    return 1
+  fi
+  local after="${json#*${BASH_REMATCH[0]}}"
+
+  # Walk forward, respecting \" escapes, until unescaped closing "
+  local value="" i=0 len=${#after}
+  while [[ $i -lt $len ]]; do
+    local ch="${after:$i:1}"
+    if [[ "$ch" == '\' ]]; then
+      value+="${after:$i:2}"
+      i=$((i + 2))
+    elif [[ "$ch" == '"' ]]; then
+      break
+    else
+      value+="$ch"
+      i=$((i + 1))
+    fi
+  done
+  printf '%s' "$value"
+}
+
+# faithfully convert all JSON escapes to literal chars. Backslash must be first.
+_unescape_json_string() {
+  local s="$1"
+  s="${s//\\\\/\\}"       # \\ → \  (must be first)
+  s="${s//\\\"/\"}"       # \" → "
+  s="${s//\\n/$'\n'}"     # \n → newline
+  s="${s//\\t/$'\t'}"     # \t → tab
+  s="${s//\\r/$'\r'}"     # \r → CR
+  s="${s//\\\/\//\/}"     # \/ → /
+  printf '%s' "$s"
+}
+
+# Detect hook event type (PreToolUse or PermissionRequest)
+hook_event=$(_extract_json_string "$input" "hook_event_name") || true
+if [[ -z "$hook_event" ]]; then
+  hook_event="PreToolUse"
+fi
+
 # Extract tool_name — only annotate Bash tool calls
-tool_name=$(echo "$input" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//;s/"//')
+tool_name=$(_extract_json_string "$input" "tool_name") || true
 
 if [[ "$tool_name" != "Bash" ]]; then
   exit 0
 fi
 
-# Extract the command field from input.command
-# Handles: "input":{"command":"..."} with possible whitespace
-command_str=$(echo "$input" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//;s/"$//')
+# Extract and unescape the command field
+command_str=$(_extract_json_string "$input" "command") || true
 
 # Empty command — no-op
 if [[ -z "$command_str" ]]; then
   exit 0
 fi
 
-# Unescape JSON string escapes that grep extracted literally
-# \" → "  \\ → \  \n → newline  \t → tab
-command_str=$(printf '%b' "$command_str" 2>/dev/null | sed 's/\\"/"/g') || command_str="$command_str"
+command_str=$(_unescape_json_string "$command_str")
 
-# Parse the command into tokens
-tokens=$(parse_command "$command_str")
+# Parse the command into tokens (supports multi-line commands)
+tokens=$(parse_multiline_command "$command_str")
 
 # Render tokens into annotated ANSI string
 annotated=$(echo "$tokens" | render_tokens)
 
-# Escape the annotated string for JSON embedding
-# Must escape: backslash, double quotes, and control characters
-json_escaped=""
-while IFS= read -r -d '' -n 1 ch || [[ -n "$ch" ]]; do
-  case "$ch" in
-    $'\033') json_escaped+="\\u001b" ;;
-    '\'*)    json_escaped+="\\\\" ;;
-    '"')     json_escaped+="\\\"" ;;
-    $'\n')   json_escaped+="\\n" ;;
-    $'\r')   json_escaped+="\\r" ;;
-    $'\t')   json_escaped+="\\t" ;;
-    *)       json_escaped+="$ch" ;;
-  esac
-done <<< "$annotated"
-
-# Remove trailing \n added by <<< heredoc
-json_escaped="${json_escaped%\\n}"
+# every special char (\ " ESC \n \r \t) must be escaped for valid JSON.
+# Backslash must be escaped first to avoid double-escaping.
+json_escaped="$annotated"
+json_escaped="${json_escaped//\\/\\\\}"             # \ → \\  (must be first)
+json_escaped="${json_escaped//\"/\\\"}"             # " → \"
+json_escaped="${json_escaped//$'\033'/\\u001b}"     # ESC → \u001b
+json_escaped="${json_escaped//$'\n'/\\n}"           # newline → \n
+json_escaped="${json_escaped//$'\r'/\\r}"           # CR → \r
+json_escaped="${json_escaped//$'\t'/\\t}"           # tab → \t
 
 # Emit the hook response
-echo "{\"systemMessage\": \"${json_escaped}\"}"
+echo "{\"systemMessage\": \"${json_escaped}\", \"hookSpecificOutput\": {\"hookEventName\": \"${hook_event}\"}}"

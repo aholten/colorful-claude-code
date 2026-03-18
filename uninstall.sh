@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# uninstall.sh — Remove the Colorful Bash hook from Claude Code
+# uninstall.sh — Remove the hook from Claude Code settings
 #
-# This script removes the hook registration added by setup.sh.
-# It does NOT delete the plugin files — only the hook reference in settings.
-#
-# Usage: ./uninstall.sh
+# fully remove the hook entry without leaving orphaned JSON.
+# Must not delete plugin files — only the hook reference in settings.
 
 set -euo pipefail
 

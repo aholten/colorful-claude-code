@@ -17,7 +17,7 @@
     "http":               { "bg": 23,  "fg": 230, "label": "HTTP requests" },
     "networking":         { "bg": 39,  "fg": 17,  "label": "remote access, FTP, and network tools" },
     "archiving":          { "bg": 208, "fg": 17,  "label": "compressing and extracting archives" },
-    "output":             { "bg": 37,  "fg": 230, "label": "printing and displaying text" },
+    "output":             { "bg": 37,  "fg": 17,  "label": "printing and displaying text" },
     "process_management": { "bg": 53,  "fg": 230, "label": "listing and managing processes" },
     "elevated":           { "bg": 196, "fg": 230, "label": "running with elevated privileges" },
     "containers":         { "bg": 62,  "fg": 230, "label": "container and orchestration tools" },
@@ -120,6 +120,35 @@
 
     "echo":     { "emoji": "💬", "cat": "output" },
     "printf":   { "emoji": "💬", "cat": "output" },
+    "date":     { "emoji": "📅", "cat": "output" },
+
+    "diff":     { "emoji": "📊", "cat": "text_processing" },
+    "patch":    { "emoji": "🩹", "cat": "text_processing" },
+
+    "stat":     { "emoji": "📊", "cat": "file_reading" },
+    "file":     { "emoji": "📋", "cat": "file_reading" },
+
+    "du":       { "emoji": "📏", "cat": "file_reading" },
+    "df":       { "emoji": "💾", "cat": "file_reading" },
+
+    "which":    { "emoji": "❓", "cat": "searching" },
+    "type":     { "emoji": "❓", "cat": "searching" },
+
+    "source":   { "emoji": "⚙",  "cat": "script_execution" },
+    "export":   { "emoji": "🌍", "cat": "operators" },
+    "alias":    { "emoji": "🏷",  "cat": "operators" },
+
+    "whoami":   { "emoji": "👤", "cat": "output" },
+    "uname":    { "emoji": "🖥",  "cat": "output" },
+    "man":      { "emoji": "📖", "cat": "output" },
+
+    "tsc":      { "emoji": "🔷", "cat": "building" },
+    "eslint":   { "emoji": "🔍", "cat": "building" },
+    "prettier": { "emoji": "💅", "cat": "building" },
+
+    "vitest":   { "emoji": "🧪", "cat": "script_execution" },
+    "jest":     { "emoji": "🧪", "cat": "script_execution" },
+    "pytest":   { "emoji": "🧪", "cat": "script_execution" },
 
     "kill":     { "emoji": "💀", "cat": "process_management" },
     "ps":       { "emoji": "📊", "cat": "process_management" },

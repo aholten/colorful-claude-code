@@ -1,8 +1,0 @@
- Bash command
-
-   curl -s https://example.com > /dev/null
-   Trigger permission prompt with curl redirect
-
- This command requires approval
-
- Do you want to proceed?

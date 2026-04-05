@@ -1,10 +1,10 @@
-# Claude Code Emoji Explainer
+# Colorful Claude Code
 
 Enhanced understanding at a glance.
 
 When Claude Code runs terminal commands on your behalf, it can be hard to follow what's happening — especially if you're not familiar with the command line. Commands flash by, and unless you already know what `grep`, `sed`, or `chmod` means, you're left wondering what just happened on your computer.
 
-Claude Code Emoji Explainer fixes this. It adds emoji and color-coded backgrounds to every command Claude Code runs, turning cryptic terminal text into something you can actually read at a glance.
+Colorful Claude Code fixes this. It adds emoji and color-coded backgrounds to every command Claude Code runs, turning cryptic terminal text into something you can actually read at a glance.
 
 Before:
 
@@ -69,7 +69,7 @@ Commands that aren't in the map still get a neutral background color so the full
 
 ## How it works
 
-This is a [Claude Code hook](https://docs.anthropic.com/en/docs/claude-code/hooks) — a script that runs automatically before Claude Code executes a Bash command. It does not change what the command does. It only adds a visual annotation so you can see what's happening.
+This is a [Claude Code plugin](https://code.claude.com/docs/en/plugins) that uses a [hook](https://code.claude.com/docs/en/hooks) — a script that runs automatically before Claude Code executes a Bash command. It does not change what the command does. It only adds a visual annotation so you can see what's happening.
 
 The plugin:
 
@@ -82,7 +82,7 @@ It handles compound commands (`cd /app && npm install`), pipes (`cat file | grep
 
 ## Requirements
 
-- Claude Code
+- Claude Code v1.0.33 or later
 - Bash (included with macOS, Linux, Git Bash on Windows, and WSL)
 - A terminal that supports emoji and 256-color ANSI codes (most modern terminals do)
 
@@ -90,68 +90,60 @@ No other dependencies. No Node.js, no Python, nothing to download.
 
 ## Install
 
-1. Clone this repository to wherever you keep your projects:
+### From the Claude Code plugin marketplace
 
-```bash
-git clone https://github.com/your-username/claude-code-emoji-explainer.git
-cd claude-code-emoji-explainer
+Once listed on the marketplace, install directly from Claude Code:
+
+```
+/plugin install colorful-claude-code
 ```
 
-2. Run the setup script:
+### Manual install (from source)
+
+1. Clone this repository:
 
 ```bash
+git clone https://github.com/aholten/colorful-claude-code.git
+```
+
+2. Load it as a local plugin:
+
+```bash
+claude --plugin-dir ./colorful-claude-code
+```
+
+Or for a persistent install, run `setup.sh` which registers the hook in your Claude Code settings:
+
+```bash
+cd colorful-claude-code
 ./setup.sh
 ```
 
-3. The script will ask you to choose between two options:
-
-   - **Local install** — The hook only runs when Claude Code is working inside this project folder. This modifies the file `.claude/settings.local.json` inside this project directory.
-
-   - **Global install** — The hook runs in every project you open with Claude Code. This modifies the file `~/.claude/settings.json`, which is **outside this project directory** in your home folder. The script will ask you to confirm before making this change.
-
-4. That's it. The next time Claude Code runs a Bash command, you'll see the annotations.
-
-### What the setup script changes
-
-The setup script adds a hook entry to one Claude Code settings file (your choice of local or global). Here is exactly what gets added:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {"type": "command", "command": "bash /path/to/scripts/annotate-pre.sh"}
-    ]
-  }
-}
-```
-
-The path will be the actual location of the script on your computer. No other files outside this project are modified.
+The setup script will ask you to choose between local (project-only) and global (all projects) installation.
 
 ## Update
 
-To update to the latest version:
+If installed via the plugin marketplace, updates happen automatically.
+
+If installed from source:
 
 ```bash
-cd claude-code-emoji-explainer
+cd colorful-claude-code
 git pull
 ```
 
-That's it. The setup script registered the hook using an absolute path to the scripts in this directory, so pulling new changes takes effect immediately. No need to run setup again.
-
 ## Uninstall
 
-To stop the hook from running:
+If installed via the plugin marketplace:
+
+```
+/plugin uninstall colorful-claude-code
+```
+
+If installed from source via `setup.sh`:
 
 ```bash
 ./uninstall.sh
-```
-
-This removes the hook entry from your Claude Code settings file (local or global, depending on where it was installed). The script will show you which files it found the hook in and ask for confirmation before making changes.
-
-The plugin files stay on disk after uninstalling. If you want to remove everything completely, delete the project folder:
-
-```bash
-rm -rf claude-code-emoji-explainer
 ```
 
 ## Testing
@@ -174,16 +166,20 @@ You can also run tests for specific components:
 ## Project structure
 
 ```
-claude-code-emoji-explainer/
+colorful-claude-code/
+├── .claude-plugin/
+│   └── plugin.json          # Plugin manifest
+├── hooks/
+│   └── hooks.json           # Hook configuration
 ├── scripts/
-│   ├── annotate-pre.sh   # Main hook — entry point called by Claude Code
-│   ├── parser.sh         # Splits commands into tokens
-│   └── renderer.sh       # Applies emoji and colors to tokens
-├── command-map.json      # Emoji and color mapping for ~40 commands
-├── setup.sh              # Install the hook
-├── uninstall.sh          # Remove the hook
-├── test.sh               # Test suite
-├── LICENSE               # MIT
+│   ├── annotate-pre.sh      # Main hook — entry point called by Claude Code
+│   ├── parser.sh            # Splits commands into tokens
+│   └── renderer.sh          # Applies emoji and colors to tokens
+├── command-map.json         # Emoji and color mapping for ~40 commands
+├── setup.sh                 # Manual install (registers hook in settings)
+├── uninstall.sh             # Manual uninstall
+├── test.sh                  # Test suite
+├── LICENSE                  # MIT
 └── README.md
 ```
 
@@ -203,5 +199,4 @@ You can edit this file to add new commands, change emoji, or adjust colors. Chan
 
 ## Author
 
-Anthony Holten @aholten on GitHub
-
+Anthony Holten [@aholten](https://github.com/aholten) on GitHub

@@ -413,9 +413,20 @@ CMD:npm install"
   # --- No variation selector (plain Unicode emoji for OS rendering) ---
 
   tokens="CMD:git status"
-  result=$(echo "$tokens" | render_tokens 2>/dev/null | xxd -p | tr -d '\n') || result="RENDER_ERROR"
-  # U+FE0F (EF B8 8F) should NOT be present — we use plain Unicode, no presentation selectors
-  assert_not_contains "renderer: emoji has no variation selector (FE0F)" "efb88f" "$result"
+  if command -v xxd >/dev/null 2>&1; then
+    result=$(echo "$tokens" | render_tokens 2>/dev/null | xxd -p | tr -d '\n') || result="RENDER_ERROR"
+  elif command -v od >/dev/null 2>&1; then
+    result=$(echo "$tokens" | render_tokens 2>/dev/null | od -A n -t x1 | tr -d ' \n') || result="RENDER_ERROR"
+  else
+    result=""
+  fi
+  if [[ -n "$result" ]]; then
+    # U+FE0F (EF B8 8F) should NOT be present — we use plain Unicode, no presentation selectors
+    assert_not_contains "renderer: emoji has no variation selector (FE0F)" "efb88f" "$result"
+  else
+    echo -e "${YELLOW}[SKIP]${RESET} renderer: variation selector test (xxd/od not available)"
+    SKIP=$((SKIP + 1))
+  fi
 
   # --- Substitution markers rendered ---
 
@@ -542,13 +553,11 @@ if should_run "hook"; then
     result=$(echo "$input" | bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
     assert_json_valid "hook: special chars produce valid JSON" "$result"
 
-    # --- Output includes hookSpecificOutput for PreToolUse ---
+    # --- Output is simple {"systemMessage": "..."} with no extra fields ---
 
     input='{"tool_name":"Bash","input":{"command":"git status"}}'
     result=$(echo "$input" | bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
-    assert_contains "hook: output contains hookSpecificOutput" '"hookSpecificOutput"' "$result"
-    assert_contains "hook: hookSpecificOutput has PreToolUse event" '"hookEventName"' "$result"
-    assert_contains "hook: hookEventName value is PreToolUse" 'PreToolUse' "$result"
+    assert_not_contains "hook: no hookSpecificOutput in output" '"hookSpecificOutput"' "$result"
 
     # --- Multi-line command (newline encoded as \n in JSON) ---
 

@@ -33,8 +33,8 @@ fi
 
 # Make scripts executable
 chmod +x "$HOOK_SCRIPT"
-chmod +x "$SCRIPT_DIR/scripts/parser.sh" 2>/dev/null || true
-chmod +x "$SCRIPT_DIR/scripts/renderer.sh" 2>/dev/null || true
+chmod +x "$SCRIPT_DIR/scripts/font-check.sh" 2>/dev/null || true
+chmod +x "$SCRIPT_DIR/scripts/install-font.sh" 2>/dev/null || true
 
 # --- Step 2: Choose install scope ---
 
@@ -90,8 +90,8 @@ mkdir -p "$SETTINGS_DIR"
 # The hook command to register — use absolute path for reliability
 HOOK_CMD="bash $HOOK_SCRIPT"
 
-# Build the hook entry
-HOOK_ENTRY="{\"hooks\":{\"PreToolUse\":[{\"type\":\"command\",\"command\":\"$HOOK_CMD\"}]}}"
+# The hook entry for user settings (no "hooks" wrapper — that's for plugin hooks.json)
+HOOK_JSON_ENTRY="{\"matcher\": \"Bash\", \"type\": \"command\", \"command\": \"$HOOK_CMD\"}"
 
 if [[ -f "$SETTINGS_FILE" ]]; then
   # Settings file exists — check if hook is already registered
@@ -103,39 +103,26 @@ if [[ -f "$SETTINGS_FILE" ]]; then
   fi
 
   # File exists but hook is not registered — we need to merge
-  # Read existing content
   existing=$(cat "$SETTINGS_FILE")
 
-  # Check if file already has hooks.PreToolUse array
   if echo "$existing" | grep -q '"PreToolUse"'; then
     # Append to existing PreToolUse array
-    # Find the PreToolUse array and add our entry before the closing ]
-    updated=$(echo "$existing" | sed "s|\"PreToolUse\"[[:space:]]*:[[:space:]]*\[|\"PreToolUse\": [{\"type\":\"command\",\"command\":\"$HOOK_CMD\"},|")
-    echo "$updated" > "$SETTINGS_FILE"
-  elif echo "$existing" | grep -q '"hooks"'; then
-    # Has hooks but no PreToolUse — add PreToolUse to hooks object
-    updated=$(echo "$existing" | sed "s|\"hooks\"[[:space:]]*:[[:space:]]*{|\"hooks\": {\"PreToolUse\": [{\"type\":\"command\",\"command\":\"$HOOK_CMD\"}],|")
+    updated=$(echo "$existing" | sed "s|\"PreToolUse\"[[:space:]]*:[[:space:]]*\[|\"PreToolUse\": [$HOOK_JSON_ENTRY,|")
     echo "$updated" > "$SETTINGS_FILE"
   else
-    # Has settings but no hooks at all — add hooks before closing }
-    # Remove trailing } and whitespace, add hooks, close
+    # No PreToolUse — add it before closing }
     updated=$(echo "$existing" | sed '$ s/}$//' | sed '$ s/[[:space:]]*$//')
-    # Check if there's existing content (needs comma)
     if echo "$updated" | grep -q '"'; then
       updated="${updated},
-  \"hooks\": {
-    \"PreToolUse\": [
-      {\"type\": \"command\", \"command\": \"$HOOK_CMD\"}
-    ]
-  }
+  \"PreToolUse\": [
+    $HOOK_JSON_ENTRY
+  ]
 }"
     else
       updated="{
-  \"hooks\": {
-    \"PreToolUse\": [
-      {\"type\": \"command\", \"command\": \"$HOOK_CMD\"}
-    ]
-  }
+  \"PreToolUse\": [
+    $HOOK_JSON_ENTRY
+  ]
 }"
     fi
     echo "$updated" > "$SETTINGS_FILE"
@@ -144,13 +131,26 @@ else
   # No settings file — create one
   cat > "$SETTINGS_FILE" << JSONEOF
 {
-  "hooks": {
-    "PreToolUse": [
-      {"type": "command", "command": "$HOOK_CMD"}
-    ]
-  }
+  "PreToolUse": [
+    {"matcher": "Bash", "type": "command", "command": "$HOOK_CMD"}
+  ]
 }
 JSONEOF
+fi
+
+# Validate the result is parseable JSON
+if command -v python3 >/dev/null 2>&1; then
+  if ! python3 -c "import json; json.load(open('$SETTINGS_FILE'))" 2>/dev/null; then
+    echo -e "${RED}Warning:${RESET} The resulting settings file may not be valid JSON."
+    echo -e "Please check: ${YELLOW}${SETTINGS_FILE}${RESET}"
+    echo ""
+  fi
+elif command -v node >/dev/null 2>&1; then
+  if ! node -e "JSON.parse(require('fs').readFileSync('$SETTINGS_FILE','utf8'))" 2>/dev/null; then
+    echo -e "${RED}Warning:${RESET} The resulting settings file may not be valid JSON."
+    echo -e "Please check: ${YELLOW}${SETTINGS_FILE}${RESET}"
+    echo ""
+  fi
 fi
 
 echo -e "${GREEN}Hook registered successfully!${RESET}"

@@ -92,12 +92,13 @@ _remove_hook() {
   sed -i 's/,\([[:space:]]*\]\)/\1/g' "$temp_file" 2>/dev/null || true
   sed -i 's/,\([[:space:]]*\}\)/\1/g' "$temp_file" 2>/dev/null || true
 
-  # Check if the hooks section is now empty
-  # If PreToolUse array is empty [], we can remove it
+  # Check if the PreToolUse array is now empty [], and remove it if so
   if grep -q '"PreToolUse"[[:space:]]*:[[:space:]]*\[\]' "$temp_file" 2>/dev/null; then
-    # Remove the empty PreToolUse line
     grep -v '"PreToolUse"' "$temp_file" > "${temp_file}.2" 2>/dev/null || true
     mv "${temp_file}.2" "$temp_file"
+    # Clean up trailing commas again after removal
+    sed -i 's/,\([[:space:]]*\]\)/\1/g' "$temp_file" 2>/dev/null || true
+    sed -i 's/,\([[:space:]]*\}\)/\1/g' "$temp_file" 2>/dev/null || true
   fi
 
   mv "$temp_file" "$settings_file"

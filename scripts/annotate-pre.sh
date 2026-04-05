@@ -1,222 +1,291 @@
 #!/usr/bin/env bash
 
 # Bash Annotator — PreToolUse hook for Claude Code
-# Prepends brand-colored Nerd Font icons to Bash commands.
-# Zero dependencies. Pure bash.
+# Adds colored emoji annotations to Bash commands via systemMessage.
+# Zero dependencies. Pure bash. No special fonts needed.
 
-# Safety net — never block command execution
 trap 'exit 0' ERR
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# --- Read JSON and extract command first (needed for updatedInput) ---
+# --- Read JSON and extract command ---
 input=$(cat)
 command=$(echo "$input" | grep -o '"command":"[^"]*"' | sed 's/"command":"//;s/"//')
 [ -z "$command" ] && exit 0
 
-# --- Font check (first run only) ---
-FONT_ASK=""
-source "$SCRIPT_DIR/font-check.sh"
-check_fonts
+# --- Emoji + color lookup ---
+# Returns: EMOJI BG FG
+# BG/FG are 256-color ANSI palette numbers
 
-# If fonts are missing, ask user to install (replaces the original command)
-if [ "$FONT_ASK" = "true" ]; then
-  install_cmd="bash ${SCRIPT_DIR}/install-font.sh"
-
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"Bash Annotator: Nerd Fonts not detected. Install FiraCode Nerd Font and configure your terminal?","updatedInput":{"command":"%s"}}}\n' "$install_cmd"
-  exit 0
-fi
-
-# --- Parse base command ---
-
-parse_base_command() {
+_lookup() {
   local cmd="$1"
-
-  # Unwrap bash -c '...' / sh -c '...'
   case "$cmd" in
-    bash\ -c\ *|sh\ -c\ *)
-      cmd="${cmd#* -c }"
-      cmd="${cmd#[\'\"]}"
-      cmd="${cmd%[\'\"]}"
+    # Version control
+    git)                echo "🔀 202 17"  ;;
+    gh)                 echo "🐙 238 255" ;;
+
+    # File navigation
+    cd)                 echo "📁 33 230"  ;;
+    ls|exa|eza|lsd)     echo "📋 33 230"  ;;
+    tree)               echo "🌳 33 230"  ;;
+    pwd)                echo "📍 33 230"  ;;
+
+    # File reading
+    cat|bat)            echo "🐱 252 17"  ;;
+    head)               echo "🔝 252 17"  ;;
+    tail)               echo "🔚 252 17"  ;;
+    less|more)          echo "📖 252 17"  ;;
+    wc)                 echo "📄 252 17"  ;;
+
+    # File create/update
+    touch)              echo "👆 34 230"  ;;
+    mkdir)              echo "📂 34 230"  ;;
+    cp)                 echo "📄 34 230"  ;;
+    mv)                 echo "📤 34 230"  ;;
+    chmod|chown)        echo "🔒 34 230"  ;;
+    ln)                 echo "🔗 34 230"  ;;
+
+    # File delete
+    rm|rmdir)           echo "🗑 196 230"  ;;
+
+    # Searching
+    grep|rg|ag)         echo "🔍 178 17"  ;;
+    find|fd)            echo "🔎 178 17"  ;;
+    locate)             echo "🔎 178 17"  ;;
+
+    # Text processing
+    sed|awk)            echo "✏ 135 230"  ;;
+    sort)               echo "📊 135 230" ;;
+    uniq|cut|tr)        echo "✏ 135 230"  ;;
+    jq|yq)              echo "✏ 135 230"  ;;
+    xargs)              echo "✏ 135 230"  ;;
+
+    # Building
+    make|cmake|ninja)   echo "🔨 136 230" ;;
+    gcc|g++|cc|clang)   echo "⚙ 136 230"  ;;
+
+    # Script execution
+    node)               echo "🟢 25 230"  ;;
+    python|python3)     echo "🐍 25 230"  ;;
+    ruby)               echo "💎 25 230"  ;;
+    bash|sh|zsh)        echo "💻 25 230"  ;;
+    deno)               echo "🦕 25 230"  ;;
+    bun)                echo "🍞 25 230"  ;;
+    java|javac)         echo "☕ 25 230"  ;;
+    go)                 echo "🔵 25 230"  ;;
+    cargo|rustc|rustup) echo "🦀 25 230"  ;;
+    kotlin|kotlinc)     echo "🟣 25 230"  ;;
+
+    # Testing
+    pytest|jest|vitest|mocha|playwright|rspec) echo "🧪 34 230" ;;
+
+    # Package management
+    npm|npx)            echo "📦 160 230" ;;
+    yarn|pnpm)          echo "📦 160 230" ;;
+    pip|pip3|pipx)      echo "🐍 160 230" ;;
+    poetry|pdm|uv)      echo "🐍 160 230" ;;
+    gem|bundle)          echo "💎 160 230" ;;
+    gradle|mvn)         echo "☕ 160 230" ;;
+    brew)               echo "🍺 160 230" ;;
+    apt|apt-get|yum|dnf|pacman) echo "📦 160 230" ;;
+
+    # HTTP
+    curl|wget|httpie)   echo "🌐 23 230"  ;;
+
+    # Networking
+    ssh|scp|sftp)       echo "🔑 39 17"   ;;
+    rsync)              echo "📄 39 17"   ;;
+    ping|traceroute)    echo "🌐 39 17"   ;;
+
+    # Archiving
+    tar|zip|unzip|gzip|gunzip) echo "🗜 208 17" ;;
+
+    # Output
+    echo|printf)        echo "💬 37 230"  ;;
+
+    # Process management
+    ps|top|htop)        echo "📊 53 230"  ;;
+    kill|killall)       echo "💀 53 230"  ;;
+    jobs|fg|bg)         echo "📊 53 230"  ;;
+
+    # Elevated
+    sudo)               echo "⚡ 196 230" ;;
+
+    # Containers
+    docker|podman)      echo "🐳 62 230"  ;;
+    kubectl|k9s|helm)   echo "☸ 62 230"   ;;
+    terraform|tofu)     echo "🏛 62 230"   ;;
+
+    # Cloud
+    aws)                echo "☁ 208 17"   ;;
+    gcloud|gsutil)      echo "☁ 33 230"   ;;
+    az)                 echo "☁ 32 230"   ;;
+
+    # System
+    systemctl|service)  echo "⚙ 240 255"  ;;
+    journalctl)         echo "📜 240 255" ;;
+    crontab)            echo "⏰ 240 255" ;;
+    df|du|free)         echo "💾 240 255" ;;
+    env|export|source)  echo "🌍 240 255" ;;
+
+    # Editors
+    vi|vim|nvim)        echo "✏ 28 230"   ;;
+    nano)               echo "✏ 240 255"  ;;
+    code)               echo "💻 32 230"  ;;
+    emacs)              echo "✏ 97 230"   ;;
+
+    # Databases
+    psql)               echo "🗄 60 230"   ;;
+    mysql|mariadb)      echo "🗄 67 230"   ;;
+    redis-cli)          echo "🗄 160 230"  ;;
+    sqlite3)            echo "🗄 33 230"   ;;
+    mongosh)            echo "🗄 34 230"   ;;
+
+    # Linters
+    eslint|prettier|shellcheck|ruff|black|mypy) echo "💡 214 17" ;;
+
+    # Default
+    *)                  echo "_ 240 255"  ;;
+  esac
+}
+
+# Operator lookup
+_lookup_op() {
+  case "$1" in
+    '&&') echo "✅ 235 250" ;;
+    '||') echo "⚠ 235 250"  ;;
+    '|')  echo "🔗 235 250" ;;
+    ';')  echo "⏩ 235 250" ;;
+    *)    echo "_ 235 250"  ;;
+  esac
+}
+
+# --- Parse and render ---
+
+ESC=$'\033'
+RESET="${ESC}[0m"
+
+# Split command on operators, render each segment with colors
+render_command() {
+  local input="$1"
+  local output=""
+  local buf=""
+  local i=0
+  local len=${#input}
+  local in_single_quote=0
+  local in_double_quote=0
+
+  while [[ $i -lt $len ]]; do
+    local ch="${input:$i:1}"
+    local next="${input:$((i+1)):1}"
+
+    # Quote tracking
+    if [[ "$ch" == "'" && $in_double_quote -eq 0 ]]; then
+      in_single_quote=$(( 1 - in_single_quote ))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ "$ch" == '"' && $in_single_quote -eq 0 ]]; then
+      in_double_quote=$(( 1 - in_double_quote ))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ $in_single_quote -eq 1 || $in_double_quote -eq 1 ]]; then
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+
+    # Operators
+    local op=""
+    if [[ "$ch" == '&' && "$next" == '&' ]]; then
+      op="&&"; i=$((i + 2))
+    elif [[ "$ch" == '|' && "$next" == '|' ]]; then
+      op="||"; i=$((i + 2))
+    elif [[ "$ch" == '|' ]]; then
+      op="|"; i=$((i + 1))
+    elif [[ "$ch" == ';' ]]; then
+      op=";"; i=$((i + 1))
+    fi
+
+    if [[ -n "$op" ]]; then
+      # Render buffered command
+      if [[ -n "${buf// /}" ]]; then
+        output+="$(_render_segment "$buf")"
+      fi
+      buf=""
+      # Render operator
+      local op_info
+      op_info=$(_lookup_op "$op")
+      local op_emoji="${op_info%% *}"
+      local rest="${op_info#* }"
+      local op_bg="${rest%% *}"
+      local op_fg="${rest##* }"
+      output+=" ${ESC}[48;5;${op_bg}m${ESC}[38;5;${op_fg}m ${op_emoji} ${op} ${RESET}"
+      continue
+    fi
+
+    buf+="$ch"
+    i=$((i + 1))
+  done
+
+  # Render remaining buffer
+  if [[ -n "${buf// /}" ]]; then
+    output+="$(_render_segment "$buf")"
+  fi
+
+  output+="${RESET}${ESC}[K"
+  printf '%s' "$output"
+}
+
+# Render a single command segment with emoji + bg/fg colors
+_render_segment() {
+  local segment="$1"
+  # Trim whitespace
+  segment="${segment#"${segment%%[![:space:]]*}"}"
+  segment="${segment%"${segment##*[![:space:]]}"}"
+  [[ -z "$segment" ]] && return
+
+  # Extract base command
+  local base_cmd="${segment%% *}"
+  base_cmd="${base_cmd##*/}"
+
+  # Handle command wrappers
+  case "$base_cmd" in
+    bash|sh)
+      # Check for bash -c '...'
+      if [[ "$segment" =~ ^(bash|sh)[[:space:]]+-c[[:space:]]+ ]]; then
+        local inner="${segment#* -c }"
+        inner="${inner#[\'\"]}"
+        inner="${inner%[\'\"]}"
+        base_cmd="${inner%% *}"
+        base_cmd="${base_cmd##*/}"
+      fi
       ;;
   esac
 
-  # For chains and pipes, use the first command
-  cmd="${cmd%%&&*}"
-  cmd="${cmd%%||*}"
-  cmd="${cmd%%;*}"
-  cmd="${cmd%%|*}"
+  local info
+  info=$(_lookup "$base_cmd")
+  local emoji="${info%% *}"
+  local rest="${info#* }"
+  local bg="${rest%% *}"
+  local fg="${rest##* }"
 
-  # Trim whitespace
-  cmd="${cmd#"${cmd%%[! ]*}"}"
-  cmd="${cmd%"${cmd##*[! ]}"}"
-
-  # Extract binary name
-  local bin="${cmd%% *}"
-  echo "${bin##*/}"
+  if [[ "$emoji" == "_" ]]; then
+    printf ' %s' "${ESC}[48;5;${bg}m${ESC}[38;5;${fg}m ${segment} ${RESET}"
+  else
+    printf ' %s' "${ESC}[48;5;${bg}m${ESC}[38;5;${fg}m ${emoji} ${segment} ${RESET}"
+  fi
 }
 
-parse_full_command() {
-  local cmd="$1"
-  cmd="${cmd%%&&*}"
-  cmd="${cmd%%||*}"
-  cmd="${cmd%%;*}"
-  cmd="${cmd%%|*}"
-  cmd="${cmd#"${cmd%%[! ]*}"}"
-  echo "$cmd" | { read -r a b _; echo "$a $b"; }
-}
+# --- Main ---
 
-BASE_CMD=$(parse_base_command "$command")
-FULL_CMD=$(parse_full_command "$command")
+# Render the annotated command
+annotated=$(render_command "$command")
 
-# --- Icon + color resolution ---
-# ICON = JSON unicode escape for the Nerd Font glyph
-# COLOR = 256-color palette number
+# JSON-escape: backslash first, then quotes, then ESC bytes, then control chars
+json_escaped="$annotated"
+json_escaped="${json_escaped//\\/\\\\}"
+json_escaped="${json_escaped//\"/\\\"}"
+json_escaped="${json_escaped//$'\033'/\\u001b}"
+json_escaped="${json_escaped//$'\n'/\\n}"
+json_escaped="${json_escaped//$'\r'/\\r}"
+json_escaped="${json_escaped//$'\t'/\\t}"
 
-ICON=""
-COLOR=""
-
-# Tier 1: Full command match
-case "$FULL_CMD" in
-  "git commit"*|"git merge"*|"git rebase"*)  ICON="\\ue702"; COLOR=202 ;;
-  "git push"*|"git pull"*|"git fetch"*)       ICON="\\ue702"; COLOR=202 ;;
-  "npm test"*|"npm run test"*)                 ICON="\\uf0c3"; COLOR=34  ;;
-  "npm install"*|"npm ci"*)                    ICON="\\ue71e"; COLOR=160 ;;
-  "docker build"*|"docker compose"*)           ICON="\\ue7b0"; COLOR=33  ;;
-  "kubectl apply"*|"kubectl delete"*)          ICON="\\udb82\\udc8e"; COLOR=62 ;;
-  "cargo test"*|"cargo build"*)                ICON="\\ue7a8"; COLOR=173 ;;
-  "pip install"*|"pip3 install"*)              ICON="\\ue73c"; COLOR=33  ;;
-  *)
-    # Tier 2: Base command match
-    case "$BASE_CMD" in
-
-      # --- Version control ---
-      git)                ICON="\\ue702"; COLOR=202 ;;
-      gh)                 ICON="\\ue708"; COLOR=238 ;;
-
-      # --- JavaScript / Node ---
-      npm|npx)            ICON="\\ue71e"; COLOR=160 ;;
-      node)               ICON="\\ue718"; COLOR=34  ;;
-      yarn|pnpm)          ICON="\\ue71e"; COLOR=32  ;;
-      bun)                ICON="\\ue76e"; COLOR=230 ;;
-      deno)               ICON="\\ue628"; COLOR=240 ;;
-
-      # --- Python ---
-      python|python3)     ICON="\\ue73c"; COLOR=33  ;;
-      pip|pip3|pipx)      ICON="\\ue73c"; COLOR=33  ;;
-      poetry|pdm|uv)      ICON="\\ue73c"; COLOR=33  ;;
-      pytest)             ICON="\\uf0c3"; COLOR=34  ;;
-      ruff|black|mypy)    ICON="\\ue73c"; COLOR=33  ;;
-
-      # --- Rust ---
-      cargo|rustc|rustup) ICON="\\ue7a8"; COLOR=173 ;;
-
-      # --- Go ---
-      go)                 ICON="\\ue627"; COLOR=38  ;;
-
-      # --- Ruby ---
-      ruby|gem|bundle)    ICON="\\ue23e"; COLOR=160 ;;
-      rails|rake|rspec)   ICON="\\ue23e"; COLOR=160 ;;
-
-      # --- Java / JVM ---
-      java|javac)         ICON="\\ue256"; COLOR=208 ;;
-      gradle|mvn)         ICON="\\ue256"; COLOR=208 ;;
-      kotlin|kotlinc)     ICON="\\ue634"; COLOR=99  ;;
-
-      # --- C / C++ ---
-      gcc|g++|cc|clang)   ICON="\\uf2db"; COLOR=25  ;;
-      make|cmake|ninja)   ICON="\\uf085"; COLOR=245 ;;
-
-      # --- Containers & orchestration ---
-      docker|podman)      ICON="\\ue7b0"; COLOR=33  ;;
-      kubectl|k9s|helm)   ICON="\\udb82\\udc8e"; COLOR=62 ;;
-      terraform|tofu)     ICON="\\uf1b6"; COLOR=97  ;;
-
-      # --- Cloud CLIs ---
-      aws)                ICON="\\ue7ad"; COLOR=208 ;;
-      gcloud|gsutil)      ICON="\\uf1a0"; COLOR=33  ;;
-      az)                 ICON="\\ufd03"; COLOR=32  ;;
-
-      # --- Network ---
-      curl|wget|httpie)   ICON="\\uf0ac"; COLOR=39  ;;
-      ssh|scp|sftp)       ICON="\\uf489"; COLOR=245 ;;
-      rsync)              ICON="\\uf0c5"; COLOR=245 ;;
-      ping|traceroute)    ICON="\\uf0ac"; COLOR=39  ;;
-
-      # --- Search ---
-      grep|rg|ag)         ICON="\\uf002"; COLOR=214 ;;
-      find|fd)            ICON="\\uf002"; COLOR=214 ;;
-
-      # --- File viewing ---
-      cat|bat|less|more)  ICON="\\uf15c"; COLOR=245 ;;
-      head|tail|wc)       ICON="\\uf15c"; COLOR=245 ;;
-
-      # --- File management ---
-      ls|exa|eza|lsd)     ICON="\\uf115"; COLOR=245 ;;
-      cd)                 ICON="\\uf07b"; COLOR=245 ;;
-      rm)                 ICON="\\uf1f8"; COLOR=160 ;;
-      cp|mv)              ICON="\\uf0c5"; COLOR=245 ;;
-      mkdir)              ICON="\\uf07c"; COLOR=245 ;;
-      chmod|chown)        ICON="\\uf023"; COLOR=160 ;;
-      tar|zip|unzip|gzip) ICON="\\uf187"; COLOR=245 ;;
-
-      # --- Editors ---
-      vi|vim|nvim)        ICON="\\ue62b"; COLOR=28  ;;
-      nano)               ICON="\\uf044"; COLOR=245 ;;
-      code)               ICON="\\ue70c"; COLOR=32  ;;
-      emacs)              ICON="\\ue632"; COLOR=97  ;;
-
-      # --- Text processing ---
-      sed|awk|jq|yq)      ICON="\\uf040"; COLOR=245 ;;
-      sort|uniq|cut|tr)   ICON="\\uf040"; COLOR=245 ;;
-      xargs)              ICON="\\uf040"; COLOR=245 ;;
-
-      # --- Databases ---
-      psql)               ICON="\\ue76e"; COLOR=60  ;;
-      mysql|mariadb)      ICON="\\ue704"; COLOR=67  ;;
-      redis-cli)          ICON="\\ue76d"; COLOR=160 ;;
-      sqlite3)            ICON="\\ue7c4"; COLOR=33  ;;
-      mongosh)            ICON="\\ue7a4"; COLOR=34  ;;
-
-      # --- System ---
-      systemctl|service)  ICON="\\uf013"; COLOR=245 ;;
-      journalctl)         ICON="\\uf1da"; COLOR=245 ;;
-      crontab)            ICON="\\uf017"; COLOR=245 ;;
-      ps|top|htop)        ICON="\\uf080"; COLOR=245 ;;
-      kill|killall)       ICON="\\uf1e2"; COLOR=160 ;;
-      df|du|free)         ICON="\\uf0a0"; COLOR=245 ;;
-      env|export|source)  ICON="\\uf462"; COLOR=245 ;;
-      sudo)               ICON="\\uf023"; COLOR=160 ;;
-
-      # --- Testing ---
-      jest|vitest|mocha)  ICON="\\uf0c3"; COLOR=34  ;;
-      playwright)         ICON="\\uf0c3"; COLOR=34  ;;
-
-      # --- Linters / formatters ---
-      eslint|prettier)    ICON="\\uf0eb"; COLOR=214 ;;
-      shellcheck)         ICON="\\uf0eb"; COLOR=214 ;;
-
-      # --- Default ---
-      *)                  ICON="\\uf489"; COLOR=245 ;;
-    esac
-    ;;
-esac
-
-# --- Build and emit systemMessage ---
-
-# Truncate long commands for display
-display_cmd="$command"
-if [ ${#display_cmd} -gt 80 ]; then
-  display_cmd="${display_cmd:0:77}..."
-fi
-
-# Escape the command text for safe JSON embedding
-display_cmd="${display_cmd//\\/\\\\}"
-display_cmd="${display_cmd//\"/\\\"}"
-
-# Assemble: colored icon + reset + space + command text
-message="\\u001b[38;5;${COLOR}m${ICON}\\u001b[0m ${display_cmd}"
-
-echo "{\"systemMessage\": \"${message}\"}"
+echo "{\"systemMessage\": \"${json_escaped}\"}"
 
 exit 0

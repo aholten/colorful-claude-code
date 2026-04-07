@@ -6,63 +6,105 @@
 
 trap 'exit 0' ERR
 
+# --- JSON helpers ---
+
+_extract_json_string() {
+  local json="$1" key="$2"
+  local pattern="\"${key}\"[[:space:]]*:[[:space:]]*\""
+  [[ "$json" =~ $pattern ]] || return 1
+  local after="${json#*${BASH_REMATCH[0]}}"
+  local value="" i=0 len=${#after}
+  while [[ $i -lt $len ]]; do
+    local ch="${after:$i:1}"
+    if [[ "$ch" == '\' ]]; then
+      value+="${after:$i:2}"; i=$((i + 2))
+    elif [[ "$ch" == '"' ]]; then
+      break
+    else
+      value+="$ch"; i=$((i + 1))
+    fi
+  done
+  printf '%s' "$value"
+}
+
+_unescape_json_string() {
+  local s="$1"
+  s="${s//\\\\/\\}"
+  s="${s//\\\"/\"}"
+  s="${s//\\n/$'\n'}"
+  s="${s//\\t/$'\t'}"
+  s="${s//\\r/$'\r'}"
+  s="${s//\\\/\//\/}"
+  printf '%s' "$s"
+}
+
 # --- Read JSON and extract command ---
 input=$(cat)
-command=$(echo "$input" | grep -o '"command":"[^"]*"' | sed 's/"command":"//;s/"//')
+command=$(_extract_json_string "$input" "command") || true
 [ -z "$command" ] && exit 0
+command=$(_unescape_json_string "$command")
 
 # --- Emoji + color lookup ---
 # Returns: EMOJI BG FG
 # BG/FG are 256-color ANSI palette numbers
 
+# Okabe-Ito CVD-safe palette (256-color approximations)
+# Red       160  — destructive / danger    (FG 230 light)
+# Orange    214  — version control         (FG 16 black)
+# Yellow    227  — search / inspect / lint (FG 16 black)
+# Blu-Green  29  — verify / test           (FG 230 light)
+# Sky Blue   81  — network / infra         (FG 16 black)
+# Blue       25  — run / build / execute   (FG 230 light)
+# Red-Purple 175 — package management      (FG 16 black)
+# Gray      240  — neutral / read / system (FG 255 white)
+
 _lookup() {
   local cmd="$1"
   case "$cmd" in
-    # Version control
-    git)                echo "🔀 202 17"  ;;
-    gh)                 echo "🐙 238 255" ;;
+    # Version control — Orange 214
+    git)                echo "🔀 214 16"  ;;
+    gh)                 echo "🐙 214 16"  ;;
 
-    # File navigation
-    cd)                 echo "📁 33 230"  ;;
-    ls|exa|eza|lsd)     echo "📋 33 230"  ;;
-    tree)               echo "🌳 33 230"  ;;
-    pwd)                echo "📍 33 230"  ;;
+    # File navigation — Gray 240 (neutral)
+    cd)                 echo "📁 240 255" ;;
+    ls|exa|eza|lsd)     echo "📋 240 255" ;;
+    tree)               echo "🌳 240 255" ;;
+    pwd)                echo "📍 240 255" ;;
 
-    # File reading
-    cat|bat)            echo "🐱 252 17"  ;;
-    head)               echo "🔝 252 17"  ;;
-    tail)               echo "🔚 252 17"  ;;
-    less|more)          echo "📖 252 17"  ;;
-    wc)                 echo "📄 252 17"  ;;
+    # File reading — Gray 240 (neutral)
+    cat|bat)            echo "🐱 240 255" ;;
+    head)               echo "🔝 240 255" ;;
+    tail)               echo "🔚 240 255" ;;
+    less|more)          echo "📖 240 255" ;;
+    wc)                 echo "📄 240 255" ;;
 
-    # File create/update
-    touch)              echo "👆 34 230"  ;;
-    mkdir)              echo "📂 34 230"  ;;
-    cp)                 echo "📄 34 230"  ;;
-    mv)                 echo "📤 34 230"  ;;
-    chmod|chown)        echo "🔒 34 230"  ;;
-    ln)                 echo "🔗 34 230"  ;;
+    # File create/update — Blue 25 (execute/modify)
+    touch)              echo "👆 25 230"  ;;
+    mkdir)              echo "📂 25 230"  ;;
+    cp)                 echo "📄 25 230"  ;;
+    mv)                 echo "📤 25 230"  ;;
+    ln)                 echo "🔗 25 230"  ;;
 
-    # File delete
-    rm|rmdir)           echo "🗑 196 230"  ;;
+    # Destructive / dangerous — Red 160
+    rm|rmdir)           echo "🗑 160 230"  ;;
+    chmod|chown)        echo "🔒 160 230"  ;;
 
-    # Searching
-    grep|rg|ag)         echo "🔍 178 17"  ;;
-    find|fd)            echo "🔎 178 17"  ;;
-    locate)             echo "🔎 178 17"  ;;
+    # Searching — Yellow 227
+    grep|rg|ag)         echo "🔍 227 16"  ;;
+    find|fd)            echo "🔎 227 16"  ;;
+    locate)             echo "🔎 227 16"  ;;
 
-    # Text processing
-    sed|awk)            echo "✏ 135 230"  ;;
-    sort)               echo "📊 135 230" ;;
-    uniq|cut|tr)        echo "✏ 135 230"  ;;
-    jq|yq)              echo "✏ 135 230"  ;;
-    xargs)              echo "✏ 135 230"  ;;
+    # Text processing — Yellow 227 (inspect/transform)
+    sed|awk)            echo "✏ 227 16"   ;;
+    sort)               echo "📊 227 16"  ;;
+    uniq|cut|tr)        echo "✏ 227 16"   ;;
+    jq|yq)              echo "✏ 227 16"   ;;
 
-    # Building
-    make|cmake|ninja)   echo "🔨 136 230" ;;
-    gcc|g++|cc|clang)   echo "⚙ 136 230"  ;;
+    # Building — Blue 25 (execute/modify)
+    make|cmake|ninja)   echo "🔨 25 230"  ;;
+    gcc|g++|cc|clang)   echo "⚙ 25 230"   ;;
 
-    # Script execution
+    # Script execution — Blue 25 (execute/modify)
     node)               echo "🟢 25 230"  ;;
     python|python3)     echo "🐍 25 230"  ;;
     ruby)               echo "💎 25 230"  ;;
@@ -74,75 +116,75 @@ _lookup() {
     cargo|rustc|rustup) echo "🦀 25 230"  ;;
     kotlin|kotlinc)     echo "🟣 25 230"  ;;
 
-    # Testing
-    pytest|jest|vitest|mocha|playwright|rspec) echo "🧪 34 230" ;;
+    # Testing — Bluish Green 29 (verify)
+    pytest|jest|vitest|mocha|playwright|rspec) echo "🧪 29 230" ;;
 
-    # Package management
-    npm|npx)            echo "📦 160 230" ;;
-    yarn|pnpm)          echo "📦 160 230" ;;
-    pip|pip3|pipx)      echo "🐍 160 230" ;;
-    poetry|pdm|uv)      echo "🐍 160 230" ;;
-    gem|bundle)          echo "💎 160 230" ;;
-    gradle|mvn)         echo "☕ 160 230" ;;
-    brew)               echo "🍺 160 230" ;;
-    apt|apt-get|yum|dnf|pacman) echo "📦 160 230" ;;
+    # Package management — Reddish Purple 175
+    npm|npx)            echo "📦 175 16"  ;;
+    yarn|pnpm)          echo "📦 175 16"  ;;
+    pip|pip3|pipx)      echo "🐍 175 16"  ;;
+    poetry|pdm|uv)      echo "🐍 175 16"  ;;
+    gem|bundle)          echo "💎 175 16"  ;;
+    gradle|mvn)         echo "☕ 175 16"  ;;
+    brew)               echo "🍺 175 16"  ;;
+    apt|apt-get|yum|dnf|pacman) echo "📦 175 16" ;;
 
-    # HTTP
-    curl|wget|httpie)   echo "🌐 23 230"  ;;
+    # HTTP — Sky Blue 81 (network)
+    curl|wget|httpie)   echo "🌐 81 16"   ;;
 
-    # Networking
-    ssh|scp|sftp)       echo "🔑 39 17"   ;;
-    rsync)              echo "📄 39 17"   ;;
-    ping|traceroute)    echo "🌐 39 17"   ;;
+    # Networking — Sky Blue 81 (network)
+    ssh|scp|sftp)       echo "🔑 81 16"   ;;
+    rsync)              echo "📄 81 16"   ;;
+    ping|traceroute)    echo "🌐 81 16"   ;;
 
-    # Archiving
-    tar|zip|unzip|gzip|gunzip) echo "🗜 208 17" ;;
+    # Archiving — Gray 240 (neutral)
+    tar|zip|unzip|gzip|gunzip) echo "🗜 240 255" ;;
 
-    # Output
-    echo|printf)        echo "💬 37 230"  ;;
+    # Output — Gray 240 (neutral)
+    echo|printf)        echo "💬 240 255" ;;
 
-    # Process management
-    ps|top|htop)        echo "📊 53 230"  ;;
-    kill|killall)       echo "💀 53 230"  ;;
-    jobs|fg|bg)         echo "📊 53 230"  ;;
+    # Process management — Gray 240 (neutral)
+    ps|top|htop)        echo "📊 240 255" ;;
+    kill|killall)       echo "💀 160 230"  ;;
+    jobs|fg|bg)         echo "📊 240 255" ;;
 
-    # Elevated
-    sudo)               echo "⚡ 196 230" ;;
+    # Elevated — Red 160 (danger)
+    sudo)               echo "⚡ 160 230"  ;;
 
-    # Containers
-    docker|podman)      echo "🐳 62 230"  ;;
-    kubectl|k9s|helm)   echo "☸ 62 230"   ;;
-    terraform|tofu)     echo "🏛 62 230"   ;;
+    # Containers — Sky Blue 81 (infra)
+    docker|podman)      echo "🐳 81 16"   ;;
+    kubectl|k9s|helm)   echo "☸ 81 16"    ;;
+    terraform|tofu)     echo "🏛 81 16"    ;;
 
-    # Cloud
-    aws)                echo "☁ 208 17"   ;;
-    gcloud|gsutil)      echo "☁ 33 230"   ;;
-    az)                 echo "☁ 32 230"   ;;
+    # Cloud — Sky Blue 81 (infra)
+    aws)                echo "☁ 81 16"    ;;
+    gcloud|gsutil)      echo "☁ 81 16"    ;;
+    az)                 echo "☁ 81 16"    ;;
 
-    # System
+    # System — Gray 240 (neutral)
     systemctl|service)  echo "⚙ 240 255"  ;;
     journalctl)         echo "📜 240 255" ;;
     crontab)            echo "⏰ 240 255" ;;
     df|du|free)         echo "💾 240 255" ;;
     env|export|source)  echo "🌍 240 255" ;;
 
-    # Editors
-    vi|vim|nvim)        echo "✏ 28 230"   ;;
-    nano)               echo "✏ 240 255"  ;;
-    code)               echo "💻 32 230"  ;;
-    emacs)              echo "✏ 97 230"   ;;
+    # Editors — Blue 25 (execute/modify)
+    vi|vim|nvim)        echo "✏ 25 230"   ;;
+    nano)               echo "✏ 25 230"   ;;
+    code)               echo "💻 25 230"  ;;
+    emacs)              echo "✏ 25 230"   ;;
 
-    # Databases
-    psql)               echo "🗄 60 230"   ;;
-    mysql|mariadb)      echo "🗄 67 230"   ;;
-    redis-cli)          echo "🗄 160 230"  ;;
-    sqlite3)            echo "🗄 33 230"   ;;
-    mongosh)            echo "🗄 34 230"   ;;
+    # Databases — Sky Blue 81 (infra)
+    psql)               echo "🗄 81 16"    ;;
+    mysql|mariadb)      echo "🗄 81 16"    ;;
+    redis-cli)          echo "🗄 81 16"    ;;
+    sqlite3)            echo "🗄 81 16"    ;;
+    mongosh)            echo "🗄 81 16"    ;;
 
-    # Linters
-    eslint|prettier|shellcheck|ruff|black|mypy) echo "💡 214 17" ;;
+    # Linters — Yellow 227 (inspect)
+    eslint|prettier|shellcheck|ruff|black|mypy) echo "💡 227 16" ;;
 
-    # Default
+    # Default — Gray 240
     *)                  echo "_ 240 255"  ;;
   esac
 }
@@ -150,11 +192,11 @@ _lookup() {
 # Operator lookup
 _lookup_op() {
   case "$1" in
-    '&&') echo "✅ 235 250" ;;
-    '||') echo "⚠ 235 250"  ;;
-    '|')  echo "🔗 235 250" ;;
-    ';')  echo "⏩ 235 250" ;;
-    *)    echo "_ 235 250"  ;;
+    '&&') echo "✅ 236 250" ;;
+    '||') echo "⚠ 236 250"  ;;
+    '|')  echo "🔗 236 250" ;;
+    ';')  echo "⏩ 236 250" ;;
+    *)    echo "_ 236 250"  ;;
   esac
 }
 
@@ -172,21 +214,64 @@ render_command() {
   local len=${#input}
   local in_single_quote=0
   local in_double_quote=0
+  local in_backtick=0
+  local paren_depth=0
+  local brace_depth=0
 
   while [[ $i -lt $len ]]; do
     local ch="${input:$i:1}"
     local next="${input:$((i+1)):1}"
 
+    # Backslash escape — skip next character entirely
+    if [[ "$ch" == '\' && $i -lt $((len - 1)) ]]; then
+      buf+="${input:$i:2}"; i=$((i + 2)); continue
+    fi
+
     # Quote tracking
-    if [[ "$ch" == "'" && $in_double_quote -eq 0 ]]; then
+    if [[ "$ch" == "'" && $in_double_quote -eq 0 && $in_backtick -eq 0 ]]; then
       in_single_quote=$(( 1 - in_single_quote ))
       buf+="$ch"; i=$((i + 1)); continue
     fi
-    if [[ "$ch" == '"' && $in_single_quote -eq 0 ]]; then
+    if [[ "$ch" == '"' && $in_single_quote -eq 0 && $in_backtick -eq 0 ]]; then
       in_double_quote=$(( 1 - in_double_quote ))
       buf+="$ch"; i=$((i + 1)); continue
     fi
     if [[ $in_single_quote -eq 1 || $in_double_quote -eq 1 ]]; then
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+
+    # Backtick command substitution
+    if [[ "$ch" == '`' ]]; then
+      in_backtick=$(( 1 - in_backtick ))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ $in_backtick -eq 1 ]]; then
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+
+    # Subshell / command substitution tracking: $( ) and ( )
+    if [[ "$ch" == '(' ]]; then
+      paren_depth=$((paren_depth + 1))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ "$ch" == ')' && $paren_depth -gt 0 ]]; then
+      paren_depth=$((paren_depth - 1))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ $paren_depth -gt 0 ]]; then
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+
+    # Brace group tracking: { ...; }
+    if [[ "$ch" == '{' ]]; then
+      brace_depth=$((brace_depth + 1))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ "$ch" == '}' && $brace_depth -gt 0 ]]; then
+      brace_depth=$((brace_depth - 1))
+      buf+="$ch"; i=$((i + 1)); continue
+    fi
+    if [[ $brace_depth -gt 0 ]]; then
       buf+="$ch"; i=$((i + 1)); continue
     fi
 
@@ -244,19 +329,104 @@ _render_segment() {
   local base_cmd="${segment%% *}"
   base_cmd="${base_cmd##*/}"
 
-  # Handle command wrappers
-  case "$base_cmd" in
-    bash|sh)
-      # Check for bash -c '...'
-      if [[ "$segment" =~ ^(bash|sh)[[:space:]]+-c[[:space:]]+ ]]; then
-        local inner="${segment#* -c }"
-        inner="${inner#[\'\"]}"
-        inner="${inner%[\'\"]}"
-        base_cmd="${inner%% *}"
-        base_cmd="${base_cmd##*/}"
-      fi
-      ;;
-  esac
+  # Unwrap command wrappers to find the "real" command
+  local unwrapped=true
+  while $unwrapped; do
+    unwrapped=false
+    case "$base_cmd" in
+      bash|sh)
+        if [[ "$segment" =~ ^(bash|sh)[[:space:]]+-c[[:space:]]+ ]]; then
+          segment="${segment#* -c }"
+          segment="${segment#[\'\"]}"
+          segment="${segment%[\'\"]}"
+          base_cmd="${segment%% *}"
+          base_cmd="${base_cmd##*/}"
+          unwrapped=true
+        fi
+        ;;
+      sudo|doas)
+        local rest="${segment#$base_cmd}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        while [[ "$rest" == -* ]]; do
+          case "$rest" in
+            -u\ *|-g\ *|-C\ *)
+              rest="${rest#* }"; rest="${rest#* }" ;;
+            *)
+              rest="${rest#* }" ;;
+          esac
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        done
+        while [[ "$rest" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do
+          rest="${rest#* }"
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        done
+        if [[ -n "$rest" ]]; then
+          segment="$rest"
+          base_cmd="${segment%% *}"
+          base_cmd="${base_cmd##*/}"
+          unwrapped=true
+        fi
+        ;;
+      env)
+        local rest="${segment#env}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        while [[ "$rest" == -* ]]; do
+          rest="${rest#* }"
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        done
+        while [[ "$rest" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do
+          rest="${rest#* }"
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        done
+        if [[ -n "$rest" ]]; then
+          segment="$rest"
+          base_cmd="${segment%% *}"
+          base_cmd="${base_cmd##*/}"
+          unwrapped=true
+        fi
+        ;;
+      time|nice|ionice|nohup|strace|ltrace|xargs|caffeinate|exec|command)
+        local rest="${segment#$base_cmd}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        while [[ "$rest" == -* ]]; do
+          rest="${rest#* }"
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        done
+        if [[ -n "$rest" ]]; then
+          segment="$rest"
+          base_cmd="${segment%% *}"
+          base_cmd="${base_cmd##*/}"
+          unwrapped=true
+        fi
+        ;;
+      watch|timeout)
+        # These take flags + a positional arg before the command
+        # watch -n 5 df -h → skip "watch", flags, then the interval/duration
+        local rest="${segment#$base_cmd}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        while [[ "$rest" == -* ]]; do
+          case "$rest" in
+            -n\ *|-s\ *|--interval\ *|--signal\ *)
+              rest="${rest#* }"; rest="${rest#* }" ;;
+            *)
+              rest="${rest#* }" ;;
+          esac
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        done
+        # Skip the positional arg (interval for watch, duration for timeout)
+        if [[ "$rest" =~ ^[0-9] ]]; then
+          rest="${rest#* }"
+          rest="${rest#"${rest%%[![:space:]]*}"}"
+        fi
+        if [[ -n "$rest" ]]; then
+          segment="$rest"
+          base_cmd="${segment%% *}"
+          base_cmd="${base_cmd##*/}"
+          unwrapped=true
+        fi
+        ;;
+    esac
+  done
 
   local info
   info=$(_lookup "$base_cmd")
@@ -277,7 +447,7 @@ _render_segment() {
 # Render the annotated command
 annotated=$(render_command "$command")
 
-# JSON-escape: backslash first, then quotes, then ESC bytes, then control chars
+# JSON-escape: backslash first, then quotes, then control chars (RFC 8259)
 json_escaped="$annotated"
 json_escaped="${json_escaped//\\/\\\\}"
 json_escaped="${json_escaped//\"/\\\"}"
@@ -285,7 +455,7 @@ json_escaped="${json_escaped//$'\033'/\\u001b}"
 json_escaped="${json_escaped//$'\n'/\\n}"
 json_escaped="${json_escaped//$'\r'/\\r}"
 json_escaped="${json_escaped//$'\t'/\\t}"
+# Strip remaining control chars U+0000-U+001F (except those already escaped above)
+json_escaped=$(printf '%s' "$json_escaped" | tr -d '\000-\010\013\014\016-\032\034-\037')
 
 echo "{\"systemMessage\": \"${json_escaped}\"}"
-
-exit 0

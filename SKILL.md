@@ -1,15 +1,13 @@
 ---
 name: bash-annotator
-description: "Annotate Bash tool commands with brand-colored Nerd Font icons in Claude Code. Use this skill when setting up bash annotation hooks, configuring command-to-icon mappings, customizing PreToolUse display, or troubleshooting missing icons in bash output. Also triggers when the user wants visual feedback on bash commands, wants to add custom tool icons, or asks about making their Claude Code terminal output more readable. Depends on the nerd-fonts skill for glyph rendering."
+description: "Annotate Bash tool commands with colored emoji icons in Claude Code. Use this skill when setting up bash annotation hooks, configuring command-to-icon mappings, customizing PreToolUse display, or troubleshooting missing icons in bash output. Also triggers when the user wants visual feedback on bash commands, wants to add custom tool icons, or asks about making their Claude Code terminal output more readable."
 ---
 
 # Bash Annotator
 
-Visual annotation layer for Claude Code's Bash tool. Prepends brand-colored Nerd Font icons to commands before execution.
+Visual annotation layer for Claude Code's Bash tool. Prepends colored emoji icons to commands before execution.
 
-**Zero dependencies.** Pure bash. No jq, no python, no node. Works on Linux, macOS, WSL, and Git Bash.
-
-**Depends on:** `nerd-fonts` skill (font installation and terminal configuration).
+**Zero dependencies.** Pure bash. No jq, no python, no node. No special fonts needed. Works on Linux, macOS, WSL, and Git Bash.
 
 ---
 
@@ -57,7 +55,7 @@ This is the critical piece. Claude Code hooks communicate via **JSON on stdin/st
 {"systemMessage": "\\u001b[38;5;202m\\ue702\\u001b[0m git status"}
 ```
 
-Claude Code parses the JSON, interprets the unicode escapes, and renders the message with ANSI colors and Nerd Font glyphs inline.
+Claude Code parses the JSON, interprets the unicode escapes, and renders the message with ANSI colors and emoji inline.
 
 ### Escaping rules
 
@@ -68,8 +66,7 @@ All special characters must be JSON unicode escapes:
 | ANSI escape (ESC) | `\033` or `\x1b` | `\\u001b` |
 | 256-color start | `\033[38;5;202m` | `\\u001b[38;5;202m` |
 | Color reset | `\033[0m` | `\\u001b[0m` |
-| Nerd Font glyph | `\ue702` | `\\ue702` |
-| Surrogate pair glyph | `\udb82\udc8e` | `\\udb82\\udc8e` |
+| Emoji | `🔀` | `🔀` (UTF-8, no escape needed) |
 | Double quote in command | `"` | `\\\"` |
 | Backslash in command | `\` | `\\\\` |
 
@@ -131,62 +128,6 @@ Tools are mapped to their closest 256-color palette match. Color reuse is intent
 
 ---
 
-## Initialization: scripts/font-check.sh
-
-One-time Nerd Font detection. Sourced by PreToolUse on first invocation.
-
-```bash
-#!/usr/bin/env bash
-
-CACHE_DIR="$HOME/.cache/bash-annotator"
-FONT_OK_FLAG="$CACHE_DIR/font-check-ok"
-FONT_WARN_FLAG="$CACHE_DIR/font-check-warned"
-
-check_fonts() {
-  [ -f "$FONT_OK_FLAG" ] && return 0
-
-  if [ -f "$FONT_WARN_FLAG" ]; then
-    local now warn_time age
-    now=$(date +%s)
-    warn_time=$(stat -c %Y "$FONT_WARN_FLAG" 2>/dev/null || stat -f %m "$FONT_WARN_FLAG" 2>/dev/null || echo 0)
-    age=$(( now - warn_time ))
-    [ "$age" -lt 86400 ] && return 0
-  fi
-
-  mkdir -p "$CACHE_DIR"
-
-  local font_found=false
-  case "$(uname -s)" in
-    Linux*)
-      if command -v fc-list &>/dev/null && fc-list | grep -qi "nerd"; then
-        font_found=true
-      fi
-      ;;
-    Darwin*)
-      if ls "$HOME/Library/Fonts/"*[Nn]erd* &>/dev/null || ls /Library/Fonts/*[Nn]erd* &>/dev/null; then
-        font_found=true
-      fi
-      ;;
-    MINGW*|MSYS*)
-      local win_fonts="${LOCALAPPDATA:-/c/Users/$USERNAME/AppData/Local}/Microsoft/Windows/Fonts"
-      if ls "$win_fonts"/*[Nn]erd* &>/dev/null; then
-        font_found=true
-      fi
-      ;;
-  esac
-
-  if [ "$font_found" = true ]; then
-    touch "$FONT_OK_FLAG"
-  else
-    # Emit warning as a systemMessage so it renders in Claude Code
-    echo '{"systemMessage": "\\u26a0 Bash Annotator: Nerd Fonts not detected. Run: claude \\\"install nerd fonts\\\""}'
-    touch "$FONT_WARN_FLAG"
-  fi
-}
-```
-
----
-
 ## PreToolUse Hook: scripts/annotate-pre.sh
 
 Fires before every Bash tool call. Extracts the command, resolves a brand-colored icon, emits a `systemMessage` JSON response.
@@ -197,15 +138,9 @@ Fires before every Bash tool call. Extracts the command, resolves a brand-colore
 # Safety net — never block command execution
 trap 'exit 0' ERR
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# --- Font check (first run only) ---
-source "$SCRIPT_DIR/font-check.sh"
-check_fonts
-
 # --- Read JSON and extract command ---
 input=$(cat)
-command=$(echo "$input" | grep -o '"command":"[^"]*"' | sed 's/"command":"//;s/"//')
+command=$(_extract_json_string "$input" "command") || true
 [ -z "$command" ] && exit 0
 
 # --- Parse base command ---
@@ -277,8 +212,8 @@ if [ -f "$CONFIG_FILE" ]; then
   esac
 fi
 
-# --- Icon + color resolution ---
-# ICON = JSON unicode escape for the Nerd Font glyph
+# --- Emoji + color resolution ---
+# EMOJI = Unicode emoji character
 # COLOR = 256-color palette number
 
 ICON=""
@@ -441,7 +376,7 @@ display_cmd="${display_cmd//\"/\\\"}"
 
 # Assemble: colored icon + reset + space + command text
 # \\u001b[38;5;{N}m  = start 256-color
-# {ICON}              = Nerd Font glyph (JSON unicode escape)
+# {EMOJI}             = Unicode emoji character
 # \\u001b[0m          = reset color
 message="\\u001b[38;5;${COLOR}m${ICON}\\u001b[0m ${display_cmd}"
 
@@ -471,7 +406,6 @@ mkdir -p "$CLAUDE_DIR"
 
 # 2. Make scripts executable
 chmod +x "$SCRIPT_DIR/scripts/annotate-pre.sh"
-chmod +x "$SCRIPT_DIR/scripts/font-check.sh"
 
 # 3. Register hooks
 PRE_HOOK="$SCRIPT_DIR/scripts/annotate-pre.sh"
@@ -517,11 +451,6 @@ EOF
   echo "Created default config at $CONFIG_FILE"
 fi
 
-# 5. Font check
-echo ""
-source "$SCRIPT_DIR/scripts/font-check.sh"
-check_fonts
-
 echo ""
 echo "Bash Annotator installed. Restart Claude Code to activate."
 ```
@@ -550,7 +479,7 @@ echo "Bash Annotator installed. Restart Claude Code to activate."
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `custom_icons` | object | `{}` | Command name → Nerd Font glyph as JSON unicode escape. Uses default gray (245). |
+| `custom_icons` | object | `{}` | Command name → emoji character. Uses default gray (245). |
 | `ignore` | array | `[]` | Commands that produce no annotation. |
 
 ---
@@ -559,31 +488,21 @@ echo "Bash Annotator installed. Restart Claude Code to activate."
 
 | Metric | Target | How |
 |--------|--------|-----|
-| Execution time | < 10ms | Pure bash. `grep` + `sed` for JSON parse. Case statement for icon lookup. |
-| Dependencies | 0 | Bash only. `grep` and `sed` are bash builtins on all targets. |
+| Execution time | < 10ms | Pure bash. Char-by-char JSON parse. Case statement for emoji lookup. |
+| Dependencies | 0 | Bash only. No special fonts needed. |
 | Failure mode | Silent | `trap 'exit 0' ERR` — never blocks command execution. |
 
 ---
 
 ## Edge Cases
 
-### JSON extraction limitations
+### JSON extraction
 
-The `grep -o '"command":"[^"]*"'` approach breaks if the command value contains escaped quotes:
-```json
-{"input":{"command":"echo \"hello\""}}
-```
-
-This is acceptable for the MVP because:
-- Most bash commands don't contain literal escaped quotes
-- When they do, the hook silently fails to extract and exits cleanly
-- The command still executes — only the annotation is skipped
-
-For a future hardening pass, the char-by-char extractor from earlier iterations can replace the grep.
+Uses a char-by-char `_extract_json_string` parser that correctly handles whitespace around `:` and escaped quotes within values. Extracted values are then unescaped via `_unescape_json_string`.
 
 ### Chained / piped commands
 
-For chains, check for high-priority commands first (git commit > npm test > make). Fall back to first command. For pipes, use the first command.
+Commands are split on `&&`, `||`, `|`, and `;` operators with quote-aware parsing. Each segment is annotated independently with its own emoji and colors. Operators get their own badge.
 
 ### Long commands
 
@@ -600,7 +519,6 @@ Backslashes and double quotes in the command text are escaped before embedding i
 - **PostToolUse hook** — status icons (✓/✗) and context-aware output summaries
 - **Truecolor mode** — exact brand hex codes via `\\u001b[38;2;R;G;Bm`
 - **Custom colors** — per-command color overrides in config
-- **Robust JSON extraction** — char-by-char parser for commands with escaped quotes
 - **Timing display** — command duration via PostToolUse
 
 ---
@@ -612,6 +530,5 @@ bash-annotator/
 ├── SKILL.md                          # This file
 ├── setup.sh                          # One-time install
 └── scripts/
-    ├── annotate-pre.sh               # PreToolUse hook
-    └── font-check.sh                 # Nerd Font detection (sourced)
+    └── annotate-pre.sh               # PreToolUse hook
 ```

@@ -33,8 +33,6 @@ fi
 
 # Make scripts executable
 chmod +x "$HOOK_SCRIPT"
-chmod +x "$SCRIPT_DIR/scripts/font-check.sh" 2>/dev/null || true
-chmod +x "$SCRIPT_DIR/scripts/install-font.sh" 2>/dev/null || true
 
 # --- Step 2: Choose install scope ---
 

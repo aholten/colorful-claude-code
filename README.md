@@ -104,22 +104,20 @@ Once listed on the marketplace, install directly from Claude Code:
 
 ```bash
 git clone https://github.com/aholten/colorful-claude-code.git
-```
-
-2. Load it as a local plugin:
-
-```bash
-claude --plugin-dir ./colorful-claude-code
-```
-
-Or for a persistent install, run `setup.sh` which registers the hook in your Claude Code settings:
-
-```bash
 cd colorful-claude-code
-./setup.sh
 ```
 
-The setup script will ask you to choose between local (project-only) and global (all projects) installation.
+2. Load it as a local plugin for a single session:
+
+```bash
+claude --plugin-dir .
+```
+
+3. Or, for a persistent install, open Claude Code in this directory and just ask:
+
+> "install this plugin"
+
+`CLAUDE.md` tells Claude how to register the hook — it will ask whether you want local (this project only) or global (all projects), edit the right settings file, validate it, and smoke-test the hook.
 
 ## Update
 
@@ -140,7 +138,7 @@ If installed via the plugin marketplace:
 /plugin uninstall colorful-claude-code
 ```
 
-If installed from source via `setup.sh`:
+If installed from source, either ask Claude ("uninstall this plugin") or run:
 
 ```bash
 ./uninstall.sh
@@ -176,8 +174,8 @@ colorful-claude-code/
 │   ├── parser.sh            # Splits commands into tokens
 │   └── renderer.sh          # Applies emoji and colors to tokens
 ├── command-map.json         # Emoji and color mapping for ~40 commands
-├── setup.sh                 # Manual install (registers hook in settings)
-├── uninstall.sh             # Manual uninstall
+├── CLAUDE.md                # Onboarding instructions Claude reads when you ask it to install
+├── uninstall.sh             # Non-interactive uninstall
 ├── test.sh                  # Test suite
 ├── LICENSE                  # MIT
 └── README.md
@@ -196,6 +194,25 @@ The file `command-map.json` contains every command-to-emoji mapping. Each entry 
 - `fg` — Foreground text color, chosen to contrast with the background
 
 You can edit this file to add new commands, change emoji, or adjust colors. Changes take effect immediately — no need to reinstall.
+
+## Tuning output width
+
+Long segments are broken at word boundaries into chunks of at most 60 characters so each styled span fits on one visual line. If you run a wider terminal and want denser output, set `COLORFUL_CHUNK_WIDTH` in your shell config:
+
+```bash
+export COLORFUL_CHUNK_WIDTH=80
+```
+
+Rough sizing guide (accounting for UI overhead):
+
+| Terminal width | Suggested `COLORFUL_CHUNK_WIDTH` |
+|----------------|----------------------------------|
+| 80             | 50                               |
+| 100            | 70                               |
+| 120            | 90                               |
+| 140+           | 110                              |
+
+Too high and long segments wrap visually, losing the bg highlight on the overflow. Too low wastes horizontal space. The hook doesn't auto-detect because Claude Code doesn't pass terminal size or a TTY through to PreToolUse hooks.
 
 ## Author
 

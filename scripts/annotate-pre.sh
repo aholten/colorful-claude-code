@@ -44,6 +44,19 @@ command=$(_extract_json_string "$input" "command") || true
 [ -z "$command" ] && exit 0
 command=$(_unescape_json_string "$command")
 
+# Collapse whitespace to spaces so the annotation stays on a single visible
+# line. The executed command is unaffected — this only shapes the display.
+command="${command//[$'\n\r\t']/ }"
+while [[ "$command" == *"  "* ]]; do command="${command//  / }"; done
+
+# Chunk budget for styled spans. Claude Code does not pass terminal size or
+# a TTY through to hooks (COLUMNS unset, /dev/tty unavailable), so this is
+# config, not detected. 60 fits ~85-col setups; wider terminals can raise
+# via COLORFUL_CHUNK_WIDTH.
+CHUNK_WIDTH="${COLORFUL_CHUNK_WIDTH:-60}"
+[[ "$CHUNK_WIDTH" =~ ^[0-9]+$ ]] || CHUNK_WIDTH=60
+[[ "$CHUNK_WIDTH" -lt 20 ]] && CHUNK_WIDTH=20
+
 # --- Emoji + color lookup ---
 # Returns: EMOJI BG FG
 # BG/FG are 256-color ANSI palette numbers
@@ -56,11 +69,16 @@ command=$(_unescape_json_string "$command")
 # Sky Blue   81  — network / infra         (FG 16 black)
 # Blue       25  — run / build / execute   (FG 230 light)
 # Red-Purple 175 — package management      (FG 16 black)
+# Purple    135  — shell control flow       (FG 230 light)
 # Gray      240  — neutral / read / system (FG 255 white)
 
 _lookup() {
   local cmd="$1"
   case "$cmd" in
+    # Shell control flow — Purple 135
+    for|while|until|select) echo "🔁 135 230" ;;
+    if|case)                echo "❓ 135 230" ;;
+
     # Version control — Orange 214
     git)                echo "🔀 214 16"  ;;
     gh)                 echo "🐙 214 16"  ;;
@@ -293,14 +311,20 @@ render_command() {
         output+="$(_render_segment "$buf")"
       fi
       buf=""
-      # Render operator
+      # Put the operator on its own visual line, and the next segment on the
+      # line after. Claude Code's TUI only applies bg to the first visual
+      # line of a styled span, so any span that shares a line with another
+      # (e.g. operator + first chunk of next segment) risks wrapping and
+      # losing styling on the wrapped portion. One span per line avoids this.
+      output+=$'\n'
       local op_info
       op_info=$(_lookup_op "$op")
       local op_emoji="${op_info%% *}"
       local rest="${op_info#* }"
       local op_bg="${rest%% *}"
       local op_fg="${rest##* }"
-      output+=" ${ESC}[48;5;${op_bg}m${ESC}[38;5;${op_fg}m ${op_emoji} ${op} ${RESET}"
+      output+="${ESC}[48;5;${op_bg}m${ESC}[38;5;${op_fg}m ${op_emoji} ${op} ${RESET}"
+      output+=$'\n'
       continue
     fi
 
@@ -334,6 +358,17 @@ _render_segment() {
   while $unwrapped; do
     unwrapped=false
     case "$base_cmd" in
+      # Shell keywords that precede the real command in a compound statement
+      do|then|else|elif)
+        local rest="${segment#$base_cmd}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        if [[ -n "$rest" ]]; then
+          segment="$rest"
+          base_cmd="${segment%% *}"
+          base_cmd="${base_cmd##*/}"
+          unwrapped=true
+        fi
+        ;;
       bash|sh)
         if [[ "$segment" =~ ^(bash|sh)[[:space:]]+-c[[:space:]]+ ]]; then
           segment="${segment#* -c }"
@@ -435,11 +470,32 @@ _render_segment() {
   local bg="${rest%% *}"
   local fg="${rest##* }"
 
-  if [[ "$emoji" == "_" ]]; then
-    printf ' %s' "${ESC}[48;5;${bg}m${ESC}[38;5;${fg}m ${segment} ${RESET}"
-  else
-    printf ' %s' "${ESC}[48;5;${bg}m${ESC}[38;5;${fg}m ${emoji} ${segment} ${RESET}"
-  fi
+  # Chunk long segments into per-line styled spans. Claude Code's TUI only
+  # applies bg to the first visual line of a styled span, so a wrap-within-
+  # span loses styling on the overflow. Emitting each chunk on its own line
+  # keeps every span self-contained and fully highlighted.
+  local prefix=""
+  [[ "$emoji" != "_" ]] && prefix=" ${emoji}"
+  local style="${ESC}[48;5;${bg}m${ESC}[38;5;${fg}m"
+  local first_budget=$((CHUNK_WIDTH - ${#prefix} - 1))
+  local out="" sep=" " pfx="$prefix" budget=$first_budget
+  local remaining="$segment" chunk
+  while [[ -n "$remaining" ]]; do
+    if [[ ${#remaining} -le $budget ]]; then
+      chunk="$remaining"
+      remaining=""
+    else
+      chunk="${remaining:0:$budget}"
+      [[ "$chunk" == *" "* ]] && chunk="${chunk% *}"
+      remaining="${remaining:${#chunk}}"
+      remaining="${remaining# }"
+    fi
+    out+="${sep}${style}${pfx} ${chunk} ${RESET}"
+    sep=$'\n '
+    pfx=""
+    budget=$CHUNK_WIDTH
+  done
+  printf '%s' "$out"
 }
 
 # --- Main ---

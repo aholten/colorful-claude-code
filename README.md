@@ -144,6 +144,39 @@ If installed from source, either ask Claude ("uninstall this plugin") or run:
 ./uninstall.sh
 ```
 
+## Watcher mode (hooks blocked by corp policy?)
+
+Some organizations set `allowManagedHooksOnly=true`, which prevents custom user hooks from running. The watcher script is a workaround — it tails Claude Code's JSONL conversation log from a separate terminal and prints the same colorful emoji annotations whenever a Bash command is executed.
+
+### Quick start
+
+Open a second terminal in your project directory and run:
+
+```bash
+bash /path/to/colorful-claude-code/scripts/watcher.sh
+```
+
+It auto-detects the most recent conversation log for the current project. You can also pass a specific session ID:
+
+```bash
+bash /path/to/colorful-claude-code/scripts/watcher.sh <session-id>
+```
+
+### Set up a `ccc` alias
+
+Add this to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+alias ccc='bash /path/to/colorful-claude-code/scripts/watcher.sh'
+```
+
+Then just run `ccc` in a separate terminal while using Claude Code.
+
+### Requirements
+
+- Python 3 (for JSON parsing of JSONL log entries)
+- Everything else from the base requirements above
+
 ## Testing
 
 The project includes a test suite to verify everything works:
@@ -172,7 +205,8 @@ colorful-claude-code/
 ├── scripts/
 │   ├── annotate-pre.sh      # Main hook — entry point called by Claude Code
 │   ├── parser.sh            # Splits commands into tokens
-│   └── renderer.sh          # Applies emoji and colors to tokens
+│   ├── renderer.sh          # Applies emoji and colors to tokens
+│   └── watcher.sh           # Standalone log watcher for restricted environments
 ├── command-map.json         # Emoji and color mapping for ~40 commands
 ├── CLAUDE.md                # Onboarding instructions Claude reads when you ask it to install
 ├── uninstall.sh             # Non-interactive uninstall

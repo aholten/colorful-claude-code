@@ -52,6 +52,28 @@ Edit the same settings file. Remove only the matcher entry whose command referen
 
 All mappings live in `command-map.json`. Changes take effect immediately — no reinstall. If the user asks to add a command, edit that file; don't touch the hook script.
 
+## Watcher mode (for restricted environments)
+
+If the user's organization sets `allowManagedHooksOnly=true` (blocking custom user hooks), the watcher script provides the same colorful annotations by tailing Claude Code's JSONL conversation log from a separate terminal.
+
+### Usage
+
+```bash
+bash scripts/watcher.sh [session-id]
+```
+
+Without a session ID, it auto-detects the most recent JSONL for the current working directory's project.
+
+### Adding a `ccc` alias
+
+To make the watcher easy to launch, suggest adding an alias to the user's shell config (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+alias ccc='bash /absolute/path/to/colorful-Claude-code/scripts/watcher.sh'
+```
+
+Replace `/absolute/path/to` with the actual path to the cloned repo. After adding, run `source ~/.bashrc` (or `~/.zshrc`) or open a new terminal. Then just run `ccc` in a separate terminal while using Claude Code.
+
 ## Tuning output width
 
 The hook chunks long segments into multiple styled lines so Claude Code's TUI never wraps within a styled span (the bg only applies to the first visual line of a span, so wrap = lost highlight). Default chunk budget is 60 chars, set via `COLORFUL_CHUNK_WIDTH` env var.

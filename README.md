@@ -67,6 +67,8 @@ Operators between commands are also annotated:
 
 Commands that aren't in the map still get a neutral background color so the full command remains visually consistent.
 
+Nesting is visualized too: content inside matched pairs — `"quotes"`, `'quotes'`, `` `backticks` ``, `$(substitutions)`, `(subshells)`, `{groups}` — renders with a progressively dimmer background, one step per nesting level (capped at two). The dimming follows each command's own category color, so a quoted argument to `git` fades through darker oranges while a quoted `echo` fades through grays. At a glance you can see exactly where a string or substitution begins and ends.
+
 ## How it works
 
 This is a [Claude Code plugin](https://code.claude.com/docs/en/plugins) that uses a [hook](https://code.claude.com/docs/en/hooks) — a script that runs automatically before Claude Code executes a Bash command. It does not change what the command does. It only adds a visual annotation so you can see what's happening.

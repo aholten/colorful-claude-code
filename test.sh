@@ -370,6 +370,25 @@ if should_run "renderer"; then
   first_line=$(printf '%s\n' "$result_visible" | head -1)
   assert_contains "renderer: first chunk line is a closed span" "[0m" "$first_line"
 
+  # --- Nested delimiter dimming ---
+
+  result_visible=$(printf '%s' "$(render_command 'echo "hello world"')" | cat -v)
+  assert_contains "renderer: quoted content dims one step" "48;5;238" "$result_visible"
+  assert_contains "renderer: dimmed segment returns to base" "48;5;240" "$result_visible"
+
+  result_visible=$(printf '%s' "$(render_command 'echo "a $(ls) b"')" | cat -v)
+  assert_contains "renderer: nested substitution dims two steps" "48;5;236" "$result_visible"
+
+  result_visible=$(printf '%s' "$(render_command "echo 'literal \"quotes\" inside'")" | cat -v)
+  assert_contains "renderer: single-quoted content dims one step" "48;5;238" "$result_visible"
+  assert_not_contains "renderer: quotes inside single quotes do not nest" "48;5;236" "$result_visible"
+
+  result_visible=$(printf '%s' "$(render_command 'git commit -m "msg"')" | cat -v)
+  assert_contains "renderer: dimming follows the segment brand color" "48;5;172" "$result_visible"
+
+  result=$(plain 'echo "$(echo "$(date)")"')
+  assert_contains "renderer: dimming caps without mangling text" '$(date)' "$result"
+
 fi
 
 # =========================================================================== #

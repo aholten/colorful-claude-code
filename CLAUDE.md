@@ -14,6 +14,8 @@ Edit the same settings file. Remove only the matcher entry whose command referen
 
 All mappings are the `_lookup` and `_lookup_op` case tables in `scripts/annotate-pre.sh` (format: `emoji bg fg`, where `_` means no emoji). If the user asks to add or change a command mapping, edit those tables. Background colors must stay within the Okabe-Ito CVD-safe palette documented in the comment above `_lookup` — pick the category color that matches what the command *does*.
 
+Each palette bg also has dimmed variants in `_depth_style`, used to fade nested delimiter content (quotes, substitutions, subshells) one step per nesting level. If a new category color is ever added, add its depth-1/depth-2 steps there too or nested content in that color won't dim.
+
 ## Watcher mode (for restricted environments)
 
 If the user's organization sets `allowManagedHooksOnly=true` (blocking custom user hooks), the watcher script provides the same colorful annotations by tailing Claude Code's JSONL conversation log from a separate terminal. Setup steps are in the **Watcher mode** section of `skills/install/SKILL.md` — the install preflight routes there automatically when hooks are blocked.

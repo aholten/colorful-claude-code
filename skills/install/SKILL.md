@@ -74,7 +74,7 @@ First determine how the plugin got here:
    }
    ```
 
-4. **Validate JSON.** `python3 -c "import json; json.load(open('<path>'))"` must exit 0. A malformed settings file silently disables all settings from that file.
+4. **Validate JSON.** `python3 -c "import json; json.load(open('<path>'))"` (or `python`/`node`/`jq` — whatever is on this machine) must exit 0. A malformed settings file silently disables all settings from that file.
 
 5. **Smoke-test the hook directly** before declaring success:
 
@@ -95,9 +95,7 @@ The watcher provides the same colorful annotations without touching the hook sys
 
 1. **Explain the situation** to the user in one or two sentences: their organization's managed settings block custom hooks, so the plugin can't annotate commands inline — but watcher mode shows the same annotations in a separate terminal.
 
-2. **Verify Python 3 is available** (`python3 --version` or `python --version` — the watcher uses whichever exists). It is needed to parse JSONL log entries. If missing, tell the user to install it before continuing.
-
-3. **Give them the command** to run in a second terminal, with the absolute path to this repo:
+2. **Give them the command** to run in a second terminal, with the absolute path to this repo (the watcher is pure bash — nothing to install):
 
    ```bash
    bash /absolute/path/to/colorful-claude-code/scripts/watcher.sh
@@ -105,7 +103,7 @@ The watcher provides the same colorful annotations without touching the hook sys
 
    Without arguments it auto-detects the most recent JSONL for the current project. It also accepts an explicit session ID: `watcher.sh <session-id>`.
 
-4. **Offer to add a `ccc` alias** to their shell config (`~/.bashrc`, `~/.zshrc`, etc.):
+3. **Offer to add a `ccc` alias** to their shell config (`~/.bashrc`, `~/.zshrc`, etc.):
 
    ```bash
    alias ccc='bash /absolute/path/to/colorful-claude-code/scripts/watcher.sh'
@@ -115,4 +113,4 @@ The watcher provides the same colorful annotations without touching the hook sys
 
    Mention that the alias is the only thing watcher mode adds to their system — `uninstall.sh` only removes hook registrations, so undoing watcher mode means deleting this alias line from the shell config by hand.
 
-5. **Do not edit any hook settings** in this path — there's nothing to register, and a dead hook entry would only confuse a future uninstall.
+4. **Do not edit any hook settings** in this path — there's nothing to register, and a dead hook entry would only confuse a future uninstall.

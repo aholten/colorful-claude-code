@@ -26,6 +26,7 @@ FILTER="${1:-}"
 source "$SCRIPT_DIR/scripts/annotate-pre.sh"
 
 HOOK_SCRIPT="$SCRIPT_DIR/scripts/annotate-pre.sh"
+WATCHER_SCRIPT="$SCRIPT_DIR/scripts/watcher.sh"
 
 # Test-output colors (defined after sourcing — the hook defines its own RESET)
 C_RED='\033[0;31m'
@@ -457,6 +458,73 @@ if should_run "hook"; then
     assert_not_contains "hook: collapsed command has no newline escapes" '\n' "$result"
 
   fi
+fi
+
+# =========================================================================== #
+#  WATCHER TESTS                                                               #
+# =========================================================================== #
+# watcher.sh only runs its main loop when executed directly, so sourcing
+# exposes _extract_bash_commands and _extract_system_message.
+
+if should_run "watcher"; then
+  echo ""
+  echo "=== Watcher Tests ==="
+  echo ""
+
+  source "$WATCHER_SCRIPT"
+
+  # --- Single Bash tool_use in an assistant message line ---
+
+  line='{"type":"assistant","message":{"content":[{"type":"tool_use","id":"1","name":"Bash","input":{"command":"git status"}}]}}'
+  result=$(_extract_bash_commands "$line")
+  assert_equals "watcher: extracts single Bash command" "git status" "$result"
+
+  # --- Parallel tool calls: multiple Bash blocks on one line ---
+
+  line='{"message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"git status"}},{"type":"tool_use","name":"Bash","input":{"command":"npm test"}}]}}'
+  result=$(_extract_bash_commands "$line")
+  expected="git status
+npm test"
+  assert_equals "watcher: extracts parallel Bash commands" "$expected" "$result"
+
+  # --- Non-Bash tool_use blocks are ignored ---
+
+  line='{"message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/x"}},{"type":"tool_use","name":"Bash","input":{"command":"ls -la"}}]}}'
+  result=$(_extract_bash_commands "$line")
+  assert_equals "watcher: skips non-Bash tools" "ls -la" "$result"
+
+  # --- JSON escapes in the command are preserved (not decoded) ---
+
+  line='{"message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"echo \"hi\" && ls"}}]}}'
+  result=$(_extract_bash_commands "$line")
+  assert_equals "watcher: keeps command JSON-escaped" 'echo \"hi\" && ls' "$result"
+
+  # --- Spaced "name": "Bash" key form ---
+
+  line='{"message":{"content":[{"type":"tool_use","name": "Bash","input":{"command":"pwd"}}]}}'
+  result=$(_extract_bash_commands "$line")
+  assert_equals "watcher: handles spaced name key" "pwd" "$result"
+
+  # --- Line with no Bash tool_use yields nothing ---
+
+  line='{"type":"user","message":{"content":"please run git status"}}'
+  result=$(_extract_bash_commands "$line")
+  assert_equals "watcher: no Bash tool_use yields empty" "" "$result"
+
+  # --- systemMessage extraction from hook output ---
+
+  result=$(_extract_system_message '{"systemMessage": "hello [0m"}')
+  assert_equals "watcher: extracts systemMessage" 'hello [0m' "$result"
+
+  # --- End-to-end: extracted command through the hook ---
+
+  line='{"message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"git status"}}]}}'
+  cmd=$(_extract_bash_commands "$line")
+  result=$(echo "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"${cmd}\"}}" \
+    | bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
+  assert_json_valid "watcher: extracted command annotates end-to-end" "$result"
+  assert_contains "watcher: end-to-end output has git emoji" "🔀" "$result"
+
 fi
 
 # =========================================================================== #

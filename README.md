@@ -176,8 +176,7 @@ Then just run `ccc` in a separate terminal while using Claude Code.
 
 ### Requirements
 
-- Python 3 (for JSON parsing of JSONL log entries)
-- Everything else from the base requirements above
+Same as the base requirements above — the watcher is pure bash too, reusing the hook's own JSON scanner to parse the log. No Python, no Node.js.
 
 ## Testing
 
@@ -194,6 +193,7 @@ You can also run tests for specific components:
 ./test.sh mapping    # test emoji/color lookups
 ./test.sh renderer   # test colored output
 ./test.sh hook       # test the full hook pipeline
+./test.sh watcher    # test JSONL command extraction
 ```
 
 ## Project structure

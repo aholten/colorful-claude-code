@@ -117,7 +117,7 @@ claude --plugin-dir .
 
 > "install this plugin"
 
-`CLAUDE.md` tells Claude how to register the hook — it will ask whether you want local (this project only) or global (all projects), edit the right settings file, validate it, and smoke-test the hook.
+The bundled install skill (`skills/install/SKILL.md`) walks Claude through it: it first checks whether your environment allows custom hooks at all (some managed/corporate setups don't — see Watcher mode below), then asks whether you want local (this project only) or global (all projects) scope, edits the right settings file, validates it, and smoke-tests the hook.
 
 ## Update
 
@@ -147,6 +147,8 @@ If installed from source, either ask Claude ("uninstall this plugin") or run:
 ## Watcher mode (hooks blocked by corp policy?)
 
 Some organizations set `allowManagedHooksOnly=true`, which prevents custom user hooks from running. The watcher script is a workaround — it tails Claude Code's JSONL conversation log from a separate terminal and prints the same colorful emoji annotations whenever a Bash command is executed.
+
+You don't need to figure this out yourself: when you ask Claude to install the plugin, the install skill detects managed policy first and sets up watcher mode instead of a hook that would silently never fire.
 
 ### Quick start
 
@@ -202,13 +204,16 @@ colorful-claude-code/
 │   └── plugin.json          # Plugin manifest
 ├── hooks/
 │   └── hooks.json           # Hook configuration
+├── skills/
+│   └── install/
+│       └── SKILL.md         # Install skill — environment preflight, hook install, watcher fallback
 ├── scripts/
 │   ├── annotate-pre.sh      # Main hook — entry point called by Claude Code
 │   ├── parser.sh            # Splits commands into tokens
 │   ├── renderer.sh          # Applies emoji and colors to tokens
 │   └── watcher.sh           # Standalone log watcher for restricted environments
 ├── command-map.json         # Emoji and color mapping for ~40 commands
-├── CLAUDE.md                # Onboarding instructions Claude reads when you ask it to install
+├── CLAUDE.md                # Onboarding pointers Claude reads when you ask it to install
 ├── uninstall.sh             # Non-interactive uninstall
 ├── test.sh                  # Test suite
 ├── LICENSE                  # MIT

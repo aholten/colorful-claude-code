@@ -1,7 +1,7 @@
 {
   "name": "colorful-claude-code",
   "description": "Adds emoji and color-coded backgrounds to every Bash command Claude Code runs, turning cryptic terminal text into something you can read at a glance.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Anthony Holten",
     "url": "https://github.com/aholten"

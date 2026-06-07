@@ -3,8 +3,9 @@
 # Bash Annotator — PreToolUse hook for Claude Code
 # Adds colored emoji annotations to Bash commands via systemMessage.
 # Zero dependencies. Pure bash. No special fonts needed.
-
-trap 'exit 0' ERR
+#
+# Runs main only when executed directly; test.sh sources this file to
+# unit-test _lookup, _lookup_op, render_command, and _render_segment.
 
 # --- JSON helpers ---
 
@@ -37,17 +38,6 @@ _unescape_json_string() {
   s="${s//\\\/\//\/}"
   printf '%s' "$s"
 }
-
-# --- Read JSON and extract command ---
-input=$(cat)
-command=$(_extract_json_string "$input" "command") || true
-[ -z "$command" ] && exit 0
-command=$(_unescape_json_string "$command")
-
-# Collapse whitespace to spaces so the annotation stays on a single visible
-# line. The executed command is unaffected — this only shapes the display.
-command="${command//[$'\n\r\t']/ }"
-while [[ "$command" == *"  "* ]]; do command="${command//  / }"; done
 
 # Chunk budget for styled spans. Claude Code does not pass terminal size or
 # a TTY through to hooks (COLUMNS unset, /dev/tty unavailable), so this is
@@ -500,18 +490,40 @@ _render_segment() {
 
 # --- Main ---
 
-# Render the annotated command
-annotated=$(render_command "$command")
+main() {
+  local input command annotated json_escaped
 
-# JSON-escape: backslash first, then quotes, then control chars (RFC 8259)
-json_escaped="$annotated"
-json_escaped="${json_escaped//\\/\\\\}"
-json_escaped="${json_escaped//\"/\\\"}"
-json_escaped="${json_escaped//$'\033'/\\u001b}"
-json_escaped="${json_escaped//$'\n'/\\n}"
-json_escaped="${json_escaped//$'\r'/\\r}"
-json_escaped="${json_escaped//$'\t'/\\t}"
-# Strip remaining control chars U+0000-U+001F (except those already escaped above)
-json_escaped=$(printf '%s' "$json_escaped" | tr -d '\000-\010\013\014\016-\032\034-\037')
+  # Read JSON and extract command
+  input=$(cat)
+  command=$(_extract_json_string "$input" "command") || true
+  [ -z "$command" ] && exit 0
+  command=$(_unescape_json_string "$command")
 
-echo "{\"systemMessage\": \"${json_escaped}\"}"
+  # Collapse whitespace to spaces so the annotation stays on a single visible
+  # line. The executed command is unaffected — this only shapes the display.
+  command="${command//[$'\n\r\t']/ }"
+  while [[ "$command" == *"  "* ]]; do command="${command//  / }"; done
+
+  # Render the annotated command
+  annotated=$(render_command "$command")
+
+  # JSON-escape: backslash first, then quotes, then control chars (RFC 8259)
+  json_escaped="$annotated"
+  json_escaped="${json_escaped//\\/\\\\}"
+  json_escaped="${json_escaped//\"/\\\"}"
+  json_escaped="${json_escaped//$'\033'/\\u001b}"
+  json_escaped="${json_escaped//$'\n'/\\n}"
+  json_escaped="${json_escaped//$'\r'/\\r}"
+  json_escaped="${json_escaped//$'\t'/\\t}"
+  # Strip remaining control chars U+0000-U+001F (except those already escaped above)
+  json_escaped=$(printf '%s' "$json_escaped" | tr -d '\000-\010\013\014\016-\032\034-\037')
+
+  echo "{\"systemMessage\": \"${json_escaped}\"}"
+}
+
+# Execute only when run directly (not sourced). Never break the tool call:
+# any unexpected error exits 0 so the hook stays invisible on failure.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  trap 'exit 0' ERR
+  main
+fi

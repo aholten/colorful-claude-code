@@ -16,6 +16,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Python is needed to parse JSONL log entries — accept python3 or python
+PYTHON_BIN=$(command -v python3 || command -v python) || {
+  echo "Error: python3 (or python) is required to parse the JSONL log" >&2
+  exit 1
+}
+
 # --- Resolve the JSONL to tail ---
 
 # Find the project directory - Claude Code uses the cwd path with / replaced by -
@@ -116,7 +122,7 @@ tail -n 0 -f "$JSONL_FILE" | while IFS= read -r line; do
 
   # Extract all Bash commands from the JSON line (a single assistant message
   # can contain multiple tool_use blocks when calls are made in parallel).
-  cmds=$(python3 -c "
+  cmds=$("$PYTHON_BIN" -c "
 import json, sys
 try:
     data = json.loads(sys.stdin.read())
@@ -140,8 +146,9 @@ except:
     [[ "$cmd" == "$last_processed" ]] && continue
     last_processed="$cmd"
 
-    # Feed it to annotate-pre.sh and capture the output
-    hook_input=$(printf '{"tool_name":"Bash","input":{"command":"%s"}}' \
+    # Feed it to annotate-pre.sh and capture the output (same tool_input
+    # shape Claude Code sends to PreToolUse hooks)
+    hook_input=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' \
       "$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g' | tr '\n' ' ')")
 
     result=$(echo "$hook_input" | bash "$REPO_DIR/scripts/annotate-pre.sh" 2>/dev/null) || continue

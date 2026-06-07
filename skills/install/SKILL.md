@@ -1,6 +1,6 @@
 ---
 name: install
-description: Install colorful-claude-code or diagnose missing annotations. Use when the user asks to install or set up this plugin, register its hook, or reports that the colorful emoji annotations never appear. Always runs an environment preflight first — managed or sandboxed environments block hooks, and those users must be routed to watcher mode instead of a hook install that silently fails.
+description: Install colorful-claude-code or diagnose missing annotations. Use when the user asks to install or set up this plugin, register its hook, or reports that the colorful emoji annotations never appear.
 ---
 
 # Install colorful-claude-code
@@ -17,11 +17,13 @@ Look for a managed settings file at the OS-specific path:
 |----|------|
 | macOS | `/Library/Application Support/ClaudeCode/managed-settings.json` |
 | Linux / WSL | `/etc/claude-code/managed-settings.json` |
-| Windows | `C:\ProgramData\ClaudeCode\managed-settings.json` |
+| Windows | `C:\Program Files\ClaudeCode\managed-settings.json` |
 
-If the file exists, read it:
+On Windows, also check the legacy path `C:\ProgramData\ClaudeCode\managed-settings.json` — Claude Code versions before 2.1.75 read managed settings from there. On every OS, also check for a `managed-settings.d/` directory next to the managed settings file: policy fragments in it merge into the managed settings and can set the same keys.
 
-- `"allowManagedHooksOnly": true` → custom hooks (including this plugin's auto-registered marketplace hook) will not run. **Go to Watcher mode.**
+If a managed settings file (or fragment) exists, read it:
+
+- `"allowManagedHooksOnly": true` → custom hooks will not run — including this plugin's auto-registered marketplace hook, unless an admin has force-enabled this specific plugin in managed `enabledPlugins` (rare; if unsure, assume blocked). **Go to Watcher mode.**
 - `"disableAllHooks": true` → same. **Go to Watcher mode.**
 
 Never attempt to edit the managed settings file — it is IT-controlled and requires admin rights. Don't suggest the user ask IT to change it unless they bring it up; just route them to watcher mode, which needs no policy exception.
@@ -77,9 +79,11 @@ First determine how the plugin got here:
 5. **Smoke-test the hook directly** before declaring success:
 
    ```bash
-   echo '{"tool_name":"Bash","input":{"command":"git status"},"session_id":"t"}' \
+   echo '{"tool_name":"Bash","tool_input":{"command":"git status"},"session_id":"t"}' \
      | bash <absolute-path>/scripts/annotate-pre.sh
    ```
+
+   Note the field is `tool_input` — that is what Claude Code actually sends to PreToolUse hooks.
 
    Expect a one-line JSON object with a `systemMessage` field containing an emoji and ANSI color codes.
 
@@ -91,7 +95,7 @@ The watcher provides the same colorful annotations without touching the hook sys
 
 1. **Explain the situation** to the user in one or two sentences: their organization's managed settings block custom hooks, so the plugin can't annotate commands inline — but watcher mode shows the same annotations in a separate terminal.
 
-2. **Verify Python 3 is available** (`python3 --version` or `python --version`). The watcher uses it to parse JSONL log entries. If missing, tell the user to install it before continuing.
+2. **Verify Python 3 is available** (`python3 --version` or `python --version` — the watcher uses whichever exists). It is needed to parse JSONL log entries. If missing, tell the user to install it before continuing.
 
 3. **Give them the command** to run in a second terminal, with the absolute path to this repo:
 
@@ -108,5 +112,7 @@ The watcher provides the same colorful annotations without touching the hook sys
    ```
 
    After adding, they `source` the file or open a new terminal, then just run `ccc` alongside any Claude Code session.
+
+   Mention that the alias is the only thing watcher mode adds to their system — `uninstall.sh` only removes hook registrations, so undoing watcher mode means deleting this alias line from the shell config by hand.
 
 5. **Do not edit any hook settings** in this path — there's nothing to register, and a dead hook entry would only confuse a future uninstall.

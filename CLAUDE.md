@@ -12,7 +12,7 @@ Edit the same settings file. Remove only the matcher entry whose command referen
 
 ## Customizing command → emoji mappings
 
-All mappings live in `command-map.json`. Changes take effect immediately — no reinstall. If the user asks to add a command, edit that file; don't touch the hook script.
+The live mappings are the `_lookup` and `_lookup_op` case tables in `scripts/annotate-pre.sh` (format: `emoji bg fg`, where `_` means no emoji). If the user asks to add or change a command mapping, edit those tables. `command-map.json` is a categorized reference of the mapping design — it is NOT read by the hook, so editing it alone changes nothing.
 
 ## Watcher mode (for restricted environments)
 

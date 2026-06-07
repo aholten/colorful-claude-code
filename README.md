@@ -75,7 +75,7 @@ The plugin:
 
 1. Receives the command Claude Code is about to run
 2. Parses it into individual commands, operators, and nested expressions
-3. Looks up each command in a mapping file (`command-map.json`)
+3. Looks up each command in its built-in emoji/color map
 4. Displays the annotated version with emoji and colors
 
 It handles compound commands (`cd /app && npm install`), pipes (`cat file | grep error`), command substitutions (`echo $(date)`), and subshells (`(git add . && git commit)`).
@@ -190,7 +190,7 @@ The project includes a test suite to verify everything works:
 You can also run tests for specific components:
 
 ```bash
-./test.sh parser     # test command parsing
+./test.sh parser     # test command segmentation (operators, quotes, substitutions)
 ./test.sh mapping    # test emoji/color lookups
 ./test.sh renderer   # test colored output
 ./test.sh hook       # test the full hook pipeline
@@ -208,11 +208,9 @@ colorful-claude-code/
 │   └── install/
 │       └── SKILL.md         # Install skill — environment preflight, hook install, watcher fallback
 ├── scripts/
-│   ├── annotate-pre.sh      # Main hook — entry point called by Claude Code
-│   ├── parser.sh            # Splits commands into tokens
-│   ├── renderer.sh          # Applies emoji and colors to tokens
+│   ├── annotate-pre.sh      # Main hook — parsing, mapping, and rendering in one script
 │   └── watcher.sh           # Standalone log watcher for restricted environments
-├── command-map.json         # Emoji and color mapping for ~40 commands
+├── command-map.json         # Categorized mapping reference (live map is in annotate-pre.sh)
 ├── CLAUDE.md                # Onboarding pointers Claude reads when you ask it to install
 ├── uninstall.sh             # Non-interactive uninstall
 ├── test.sh                  # Test suite
@@ -222,17 +220,17 @@ colorful-claude-code/
 
 ## Adding or changing command mappings
 
-The file `command-map.json` contains every command-to-emoji mapping. Each entry looks like this:
+The live command-to-emoji mappings are the `_lookup` and `_lookup_op` tables inside `scripts/annotate-pre.sh` — the hook is pure bash with zero runtime dependencies, so the map is built in rather than read from a file. Each entry looks like this:
 
-```json
-"git": { "emoji": "🔀", "bg": 202, "fg": 17 }
+```bash
+git)                echo "🔀 214 16"  ;;
 ```
 
-- `emoji` — The emoji shown before the command
-- `bg` — Background color (256-color ANSI code)
-- `fg` — Foreground text color, chosen to contrast with the background
+- First field — the emoji shown before the command (`_` means no emoji)
+- Second — background color (256-color ANSI code)
+- Third — foreground text color, chosen to contrast with the background
 
-You can edit this file to add new commands, change emoji, or adjust colors. Changes take effect immediately — no need to reinstall.
+Edit those tables to add new commands, change emoji, or adjust colors. Changes take effect on the next command — no need to reinstall. (`command-map.json` is a categorized reference of the mapping design and is not currently read by the hook.)
 
 ## Tuning output width
 

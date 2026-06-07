@@ -46,6 +46,9 @@ if [[ $found_local -eq 0 && $found_global -eq 0 ]]; then
   echo "  $LOCAL_SETTINGS"
   echo "  $GLOBAL_SETTINGS"
   echo ""
+  echo "If you used watcher mode instead, the only artifact is the 'ccc' alias"
+  echo "in your shell config (~/.bashrc or ~/.zshrc) — remove that line by hand."
+  echo ""
   exit 0
 fi
 
@@ -121,5 +124,9 @@ echo ""
 echo -e "The plugin files are still on disk. To completely remove them:"
 echo -e "  ${CYAN}rm -rf ${SCRIPT_DIR}${RESET}"
 echo ""
-echo -e "To reinstall later: ${CYAN}./setup.sh${RESET}"
+echo -e "If you also set up watcher mode, remove the ${CYAN}ccc${RESET} alias from your"
+echo -e "shell config (~/.bashrc or ~/.zshrc) — this script doesn't edit shell configs."
+echo ""
+echo -e "To reinstall later: open Claude Code in this directory and ask it to"
+echo -e "install this plugin (it follows ${CYAN}skills/install/SKILL.md${RESET})."
 echo ""

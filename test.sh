@@ -22,6 +22,10 @@ FILTER="${1:-}"
 # annotate-pre.sh only runs its main entry point when executed directly, so
 # sourcing exposes _lookup, _lookup_op, render_command, _render_segment, and
 # the JSON helpers for unit testing.
+#
+# Pin 256-color mode so assertions are deterministic regardless of the
+# COLORTERM of the machine running the tests; truecolor has its own tests.
+export COLORFUL_COLOR_MODE=256
 
 source "$SCRIPT_DIR/scripts/annotate-pre.sh"
 
@@ -373,21 +377,33 @@ if should_run "renderer"; then
   # --- Nested delimiter dimming ---
 
   result_visible=$(printf '%s' "$(render_command 'echo "hello world"')" | cat -v)
-  assert_contains "renderer: quoted content dims one step" "48;5;238" "$result_visible"
+  assert_contains "renderer: quoted content dims one step" "48;5;236" "$result_visible"
   assert_contains "renderer: dimmed segment returns to base" "48;5;240" "$result_visible"
 
   result_visible=$(printf '%s' "$(render_command 'echo "a $(ls) b"')" | cat -v)
-  assert_contains "renderer: nested substitution dims two steps" "48;5;236" "$result_visible"
+  assert_contains "renderer: nested substitution dims two steps" "48;5;233" "$result_visible"
 
   result_visible=$(printf '%s' "$(render_command "echo 'literal \"quotes\" inside'")" | cat -v)
-  assert_contains "renderer: single-quoted content dims one step" "48;5;238" "$result_visible"
-  assert_not_contains "renderer: quotes inside single quotes do not nest" "48;5;236" "$result_visible"
+  assert_contains "renderer: single-quoted content dims one step" "48;5;236" "$result_visible"
+  assert_not_contains "renderer: quotes inside single quotes do not nest" "48;5;233" "$result_visible"
 
   result_visible=$(printf '%s' "$(render_command 'git commit -m "msg"')" | cat -v)
   assert_contains "renderer: dimming follows the segment brand color" "48;5;172" "$result_visible"
 
   result=$(plain 'echo "$(echo "$(date)")"')
   assert_contains "renderer: dimming caps without mangling text" '$(date)' "$result"
+
+  # --- Truecolor mode: exact Okabe-Ito RGB + alpha blends ---
+  # depth1 blend at 55% opacity over (18,18,18): orange (230,159,0) → (134,95,8)
+
+  result=$(echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"msg\""}}' \
+    | COLORFUL_COLOR_MODE=truecolor bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
+  assert_contains "renderer: truecolor base uses Okabe-Ito RGB" "48;2;230;159;0" "$result"
+  assert_contains "renderer: truecolor depth-1 blends at 55% opacity" "48;2;134;95;8" "$result"
+
+  result=$(echo '{"tool_name":"Bash","tool_input":{"command":"echo \"a $(ls) b\""}}' \
+    | COLORFUL_COLOR_MODE=truecolor bash "$HOOK_SCRIPT" 2>/dev/null) || result="HOOK_ERROR"
+  assert_contains "renderer: truecolor depth-2 blends at 30% opacity" "48;2;39;39;39" "$result"
 
 fi
 

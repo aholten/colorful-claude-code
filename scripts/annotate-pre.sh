@@ -47,6 +47,17 @@ CHUNK_WIDTH="${COLORFUL_CHUNK_WIDTH:-60}"
 [[ "$CHUNK_WIDTH" =~ ^[0-9]+$ ]] || CHUNK_WIDTH=60
 [[ "$CHUNK_WIDTH" -lt 20 ]] && CHUNK_WIDTH=20
 
+# Color mode: 24-bit truecolor allows exact alpha blends for the nesting
+# transparency effect; 256-color is the fallback. Auto-detected from
+# COLORTERM, overridable via COLORFUL_COLOR_MODE=truecolor|256.
+COLOR_MODE="${COLORFUL_COLOR_MODE:-}"
+if [[ "$COLOR_MODE" != "truecolor" && "$COLOR_MODE" != "256" ]]; then
+  case "${COLORTERM:-}" in
+    *truecolor*|*24bit*) COLOR_MODE=truecolor ;;
+    *)                   COLOR_MODE=256 ;;
+  esac
+fi
+
 # --- Emoji + color lookup ---
 # Returns: EMOJI BG FG
 # BG/FG are 256-color ANSI palette numbers
@@ -238,14 +249,60 @@ _depth_style() {
     25)  [[ "$depth" -eq 1 ]] && echo "24 230"  || echo "17 250"  ;;  # blue
     175) [[ "$depth" -eq 1 ]] && echo "132 230" || echo "96 250"  ;;  # red-purple
     135) [[ "$depth" -eq 1 ]] && echo "97 230"  || echo "60 250"  ;;  # purple
-    240) [[ "$depth" -eq 1 ]] && echo "238 250" || echo "236 247" ;;  # gray
+    240) [[ "$depth" -eq 1 ]] && echo "236 250" || echo "233 247" ;;  # gray
     *)   echo "$bg $fg" ;;
   esac
 }
 
-# Emits the ANSI style sequence for a base bg/fg at the given depth
+# Truecolor variant: real Okabe-Ito RGB values, alpha-blended toward an
+# assumed dark terminal background (18,18,18) so nested content reads as
+# partially transparent — depth 1 at 55% opacity, depth 2 at 30%. Terminals
+# can't render actual transparency or dithering behind glyphs (one solid bg
+# per cell), so the blend bakes the effect into the color itself.
+# Returns "r g b fg", or "" when the bg has no RGB mapping (caller falls
+# back to the 256-color table).
+_depth_rgb() {
+  local bg="$1" fg="$2" depth="$3"
+  local rgb
+  case "$bg" in
+    160) rgb="213 94 0"    ;;  # vermillion
+    214) rgb="230 159 0"   ;;  # orange
+    227) rgb="240 228 66"  ;;  # yellow
+    29)  rgb="0 158 115"   ;;  # bluish green
+    81)  rgb="86 180 233"  ;;  # sky blue
+    25)  rgb="0 114 178"   ;;  # blue
+    175) rgb="204 121 167" ;;  # reddish purple
+    135) rgb="154 91 210"  ;;  # purple
+    240) rgb="88 88 88"    ;;  # gray
+    236) rgb="48 48 48"    ;;  # operator gray
+    *)   echo ""; return 0 ;;
+  esac
+  local r g b
+  read -r r g b <<< "$rgb"
+  if [[ "$depth" -le 0 ]]; then
+    echo "$r $g $b $fg"
+    return 0
+  fi
+  local a=55 df=230 tb=18
+  if [[ "$depth" -ge 2 ]]; then a=30; df=250; fi
+  echo "$(( (tb * (100 - a) + r * a) / 100 )) \
+$(( (tb * (100 - a) + g * a) / 100 )) \
+$(( (tb * (100 - a) + b * a) / 100 )) ${df}"
+}
+
+# Emits the ANSI style sequence for a base bg/fg at the given depth,
+# preferring truecolor alpha blends when the terminal supports them
 _span_style() {
   local s
+  if [[ "$COLOR_MODE" == "truecolor" ]]; then
+    s=$(_depth_rgb "$1" "$2" "$3")
+    if [[ -n "$s" ]]; then
+      local r g b f
+      read -r r g b f <<< "$s"
+      printf '%s' "${ESC}[48;2;${r};${g};${b}m${ESC}[38;5;${f}m"
+      return 0
+    fi
+  fi
   s=$(_depth_style "$1" "$2" "$3")
   printf '%s' "${ESC}[48;5;${s%% *}m${ESC}[38;5;${s##* }m"
 }

@@ -67,7 +67,9 @@ Operators between commands are also annotated:
 
 Commands that aren't in the map still get a neutral background color so the full command remains visually consistent.
 
-Nesting is visualized too: content inside matched pairs — `"quotes"`, `'quotes'`, `` `backticks` ``, `$(substitutions)`, `(subshells)`, `{groups}` — renders with a progressively dimmer background, one step per nesting level (capped at two). The dimming follows each command's own category color, so a quoted argument to `git` fades through darker oranges while a quoted `echo` fades through grays. At a glance you can see exactly where a string or substitution begins and ends.
+Nesting is visualized too: content inside matched pairs — `"quotes"`, `'quotes'`, `` `backticks` ``, `$(substitutions)`, `(subshells)`, `{groups}` — renders with a partially transparent version of the command's background color, one opacity step per nesting level (full → 55% → 30%, capped there). A quoted argument to `git` fades through translucent oranges while a quoted `echo` fades through grays. At a glance you can see exactly where a string or substitution begins and ends.
+
+Terminal cells can't render true transparency, so the effect is an alpha blend baked into the color: on terminals that advertise 24-bit color (`COLORTERM=truecolor`) the blend is computed exactly from the real Okabe-Ito RGB values; elsewhere it falls back to stepped 256-color shades. Force a mode with `COLORFUL_COLOR_MODE=truecolor` or `COLORFUL_COLOR_MODE=256` if the auto-detection guesses wrong for your terminal.
 
 ## How it works
 

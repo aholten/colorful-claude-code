@@ -3,8 +3,9 @@
 # Bash Annotator — PreToolUse hook for Claude Code
 # Adds colored emoji annotations to Bash commands via systemMessage.
 # Zero dependencies. Pure bash. No special fonts needed.
-
-trap 'exit 0' ERR
+#
+# Runs main only when executed directly; test.sh sources this file to
+# unit-test _lookup, _lookup_op, render_command, and _render_segment.
 
 # --- JSON helpers ---
 
@@ -38,17 +39,6 @@ _unescape_json_string() {
   printf '%s' "$s"
 }
 
-# --- Read JSON and extract command ---
-input=$(cat)
-command=$(_extract_json_string "$input" "command") || true
-[ -z "$command" ] && exit 0
-command=$(_unescape_json_string "$command")
-
-# Collapse whitespace to spaces so the annotation stays on a single visible
-# line. The executed command is unaffected — this only shapes the display.
-command="${command//[$'\n\r\t']/ }"
-while [[ "$command" == *"  "* ]]; do command="${command//  / }"; done
-
 # Chunk budget for styled spans. Claude Code does not pass terminal size or
 # a TTY through to hooks (COLUMNS unset, /dev/tty unavailable), so this is
 # config, not detected. 60 fits ~85-col setups; wider terminals can raise
@@ -56,6 +46,17 @@ while [[ "$command" == *"  "* ]]; do command="${command//  / }"; done
 CHUNK_WIDTH="${COLORFUL_CHUNK_WIDTH:-60}"
 [[ "$CHUNK_WIDTH" =~ ^[0-9]+$ ]] || CHUNK_WIDTH=60
 [[ "$CHUNK_WIDTH" -lt 20 ]] && CHUNK_WIDTH=20
+
+# Color mode: 24-bit truecolor allows exact alpha blends for the nesting
+# transparency effect; 256-color is the fallback. Auto-detected from
+# COLORTERM, overridable via COLORFUL_COLOR_MODE=truecolor|256.
+COLOR_MODE="${COLORFUL_COLOR_MODE:-}"
+if [[ "$COLOR_MODE" != "truecolor" && "$COLOR_MODE" != "256" ]]; then
+  case "${COLORTERM:-}" in
+    *truecolor*|*24bit*) COLOR_MODE=truecolor ;;
+    *)                   COLOR_MODE=256 ;;
+  esac
+fi
 
 # --- Emoji + color lookup ---
 # Returns: EMOJI BG FG
@@ -222,6 +223,119 @@ _lookup_op() {
 
 ESC=$'\033'
 RESET="${ESC}[0m"
+
+# --- Nesting-depth dimming ---
+# Content inside matched delimiter pairs ("...", '...', `...`, (...), {...})
+# renders with the segment's bg stepped toward the terminal background, one
+# step per nesting level (capped at two), so pairs and their nesting read at
+# a glance. Variants are hand-picked per palette color in the 6x6x6 cube to
+# stay CVD-safe; fg flips to a light tone where the dimmed bg would lose
+# contrast against the base fg.
+
+# Returns "bg fg" for a base bg/fg at the given depth (0 = full strength)
+_depth_style() {
+  local bg="$1" fg="$2" depth="$3"
+  if [[ "$depth" -le 0 ]]; then
+    echo "$bg $fg"
+    return 0
+  fi
+  [[ "$depth" -gt 2 ]] && depth=2
+  case "$bg" in
+    160) [[ "$depth" -eq 1 ]] && echo "124 230" || echo "88 250"  ;;  # red
+    214) [[ "$depth" -eq 1 ]] && echo "172 16"  || echo "130 230" ;;  # orange
+    227) [[ "$depth" -eq 1 ]] && echo "184 16"  || echo "142 230" ;;  # yellow
+    29)  [[ "$depth" -eq 1 ]] && echo "23 230"  || echo "22 250"  ;;  # blu-green
+    81)  [[ "$depth" -eq 1 ]] && echo "38 230"  || echo "24 250"  ;;  # sky blue
+    25)  [[ "$depth" -eq 1 ]] && echo "24 230"  || echo "17 250"  ;;  # blue
+    175) [[ "$depth" -eq 1 ]] && echo "132 230" || echo "96 250"  ;;  # red-purple
+    135) [[ "$depth" -eq 1 ]] && echo "97 230"  || echo "60 250"  ;;  # purple
+    240) [[ "$depth" -eq 1 ]] && echo "236 250" || echo "233 247" ;;  # gray
+    *)   echo "$bg $fg" ;;
+  esac
+}
+
+# Truecolor variant: real Okabe-Ito RGB values, alpha-blended toward an
+# assumed dark terminal background (18,18,18) so nested content reads as
+# partially transparent — depth 1 at 55% opacity, depth 2 at 30%. Terminals
+# can't render actual transparency or dithering behind glyphs (one solid bg
+# per cell), so the blend bakes the effect into the color itself.
+# Returns "r g b fg", or "" when the bg has no RGB mapping (caller falls
+# back to the 256-color table).
+_depth_rgb() {
+  local bg="$1" fg="$2" depth="$3"
+  local rgb
+  case "$bg" in
+    160) rgb="213 94 0"    ;;  # vermillion
+    214) rgb="230 159 0"   ;;  # orange
+    227) rgb="240 228 66"  ;;  # yellow
+    29)  rgb="0 158 115"   ;;  # bluish green
+    81)  rgb="86 180 233"  ;;  # sky blue
+    25)  rgb="0 114 178"   ;;  # blue
+    175) rgb="204 121 167" ;;  # reddish purple
+    135) rgb="154 91 210"  ;;  # purple
+    240) rgb="88 88 88"    ;;  # gray
+    236) rgb="48 48 48"    ;;  # operator gray
+    *)   echo ""; return 0 ;;
+  esac
+  local r g b
+  read -r r g b <<< "$rgb"
+  if [[ "$depth" -le 0 ]]; then
+    echo "$r $g $b $fg"
+    return 0
+  fi
+  local a=55 df=230 tb=18
+  if [[ "$depth" -ge 2 ]]; then a=30; df=250; fi
+  echo "$(( (tb * (100 - a) + r * a) / 100 )) \
+$(( (tb * (100 - a) + g * a) / 100 )) \
+$(( (tb * (100 - a) + b * a) / 100 )) ${df}"
+}
+
+# Emits the ANSI style sequence for a base bg/fg at the given depth,
+# preferring truecolor alpha blends when the terminal supports them
+_span_style() {
+  local s
+  if [[ "$COLOR_MODE" == "truecolor" ]]; then
+    s=$(_depth_rgb "$1" "$2" "$3")
+    if [[ -n "$s" ]]; then
+      local r g b f
+      read -r r g b f <<< "$s"
+      printf '%s' "${ESC}[48;2;${r};${g};${b}m${ESC}[38;5;${f}m"
+      return 0
+    fi
+  fi
+  s=$(_depth_style "$1" "$2" "$3")
+  printf '%s' "${ESC}[48;5;${s%% *}m${ESC}[38;5;${s##* }m"
+}
+
+# The two helpers below run inside _render_segment's word-walk and rely on
+# bash dynamic scoping to share its locals: out, line_len, wbuf, wlen,
+# wstart_style, budget.
+
+# Append the buffered word to the current line, breaking the line first when
+# it doesn't fit. Claude Code's TUI only applies bg to the first visual line
+# of a styled span, so no span may wrap — every line is opened with the style
+# active at its first word and closed with RESET before the newline.
+_flush_word() {
+  [[ "$wlen" -eq 0 ]] && return 0
+  if [[ "$line_len" -gt 0 && $((line_len + 1 + wlen)) -gt "$budget" ]]; then
+    out+=" ${RESET}"$'\n'" ${wstart_style}"
+    line_len=0
+  fi
+  out+=" $wbuf"
+  line_len=$((line_len + wlen + 1))
+  wbuf=""
+  wlen=0
+  return 0
+}
+
+# Append visible characters to the word buffer, hard-flushing words that
+# exceed the chunk budget on their own (URLs, long paths)
+_wput() {
+  wbuf+="$1"
+  wlen=$((wlen + ${#1}))
+  [[ "$wlen" -ge "$budget" ]] && _flush_word
+  return 0
+}
 
 # Split command on operators, render each segment with colors
 render_command() {
@@ -470,48 +584,172 @@ _render_segment() {
   local bg="${rest%% *}"
   local fg="${rest##* }"
 
-  # Chunk long segments into per-line styled spans. Claude Code's TUI only
-  # applies bg to the first visual line of a styled span, so a wrap-within-
-  # span loses styling on the overflow. Emitting each chunk on its own line
-  # keeps every span self-contained and fully highlighted.
   local prefix=""
   [[ "$emoji" != "_" ]] && prefix=" ${emoji}"
-  local style="${ESC}[48;5;${bg}m${ESC}[38;5;${fg}m"
-  local first_budget=$((CHUNK_WIDTH - ${#prefix} - 1))
-  local out="" sep=" " pfx="$prefix" budget=$first_budget
-  local remaining="$segment" chunk
-  while [[ -n "$remaining" ]]; do
-    if [[ ${#remaining} -le $budget ]]; then
-      chunk="$remaining"
-      remaining=""
-    else
-      chunk="${remaining:0:$budget}"
-      [[ "$chunk" == *" "* ]] && chunk="${chunk% *}"
-      remaining="${remaining:${#chunk}}"
-      remaining="${remaining# }"
+
+  # Walk the segment character by character, dimming the bg one step per
+  # nested delimiter level (see _depth_style) and flushing word by word so
+  # no styled span wraps within a visual line. Quote semantics follow bash:
+  # nothing nests inside '...' or `...`; inside "..." only $( and ${ open a
+  # level. Unbalanced closers are rendered literally.
+  local depth=0 in_single=0 in_double=0 in_backtick=0 dq_base=0
+  local budget=$CHUNK_WIDTH
+  local cur_style
+  cur_style=$(_span_style "$bg" "$fg" 0)
+  local out=" ${cur_style}${prefix}"
+  local line_len=${#prefix}
+  local wbuf="" wlen=0 wstart_style="$cur_style"
+  local i=0 len=${#segment} ch prev
+
+  while [[ $i -lt $len ]]; do
+    ch="${segment:$i:1}"
+    [[ "$wlen" -eq 0 ]] && wstart_style="$cur_style"
+
+    # Word boundary
+    if [[ "$ch" == ' ' ]]; then
+      _flush_word
+      i=$((i + 1))
+      continue
     fi
-    out+="${sep}${style}${pfx} ${chunk} ${RESET}"
-    sep=$'\n '
-    pfx=""
-    budget=$CHUNK_WIDTH
+
+    # Backslash escape — copy both characters, no state change
+    if [[ "$ch" == '\' && $i -lt $((len - 1)) ]]; then
+      _wput "${segment:$i:2}"
+      i=$((i + 2))
+      continue
+    fi
+
+    # Inside single quotes / backticks everything is literal until the closer
+    if [[ $in_single -eq 1 ]]; then
+      _wput "$ch"
+      if [[ "$ch" == "'" ]]; then
+        in_single=0
+        depth=$((depth - 1))
+        cur_style=$(_span_style "$bg" "$fg" "$depth")
+        wbuf+="$cur_style"
+      fi
+      i=$((i + 1))
+      continue
+    fi
+    if [[ $in_backtick -eq 1 ]]; then
+      _wput "$ch"
+      if [[ "$ch" == '`' ]]; then
+        in_backtick=0
+        depth=$((depth - 1))
+        cur_style=$(_span_style "$bg" "$fg" "$depth")
+        wbuf+="$cur_style"
+      fi
+      i=$((i + 1))
+      continue
+    fi
+
+    prev=""
+    [[ $i -gt 0 ]] && prev="${segment:$((i-1)):1}"
+
+    case "$ch" in
+      "'")
+        if [[ $in_double -eq 1 ]]; then
+          _wput "$ch"   # literal inside double quotes
+        else
+          depth=$((depth + 1))
+          cur_style=$(_span_style "$bg" "$fg" "$depth")
+          wbuf+="$cur_style"
+          _wput "$ch"
+          in_single=1
+        fi
+        ;;
+      '"')
+        if [[ $in_double -eq 1 ]]; then
+          _wput "$ch"
+          in_double=0
+          depth=$((depth - 1))
+          cur_style=$(_span_style "$bg" "$fg" "$depth")
+          wbuf+="$cur_style"
+        else
+          depth=$((depth + 1))
+          cur_style=$(_span_style "$bg" "$fg" "$depth")
+          wbuf+="$cur_style"
+          _wput "$ch"
+          in_double=1
+          dq_base=$depth
+        fi
+        ;;
+      '`')
+        depth=$((depth + 1))
+        cur_style=$(_span_style "$bg" "$fg" "$depth")
+        wbuf+="$cur_style"
+        _wput "$ch"
+        in_backtick=1
+        ;;
+      '('|'{')
+        # Inside double quotes only $( and ${ open a level
+        if [[ $in_double -eq 1 && "$prev" != '$' ]]; then
+          _wput "$ch"
+        else
+          depth=$((depth + 1))
+          cur_style=$(_span_style "$bg" "$fg" "$depth")
+          wbuf+="$cur_style"
+          _wput "$ch"
+        fi
+        ;;
+      ')'|'}')
+        if [[ $depth -gt 0 ]] && [[ $in_double -eq 0 || $depth -gt $dq_base ]]; then
+          _wput "$ch"
+          depth=$((depth - 1))
+          cur_style=$(_span_style "$bg" "$fg" "$depth")
+          wbuf+="$cur_style"
+        else
+          _wput "$ch"
+        fi
+        ;;
+      *)
+        _wput "$ch"
+        ;;
+    esac
+    i=$((i + 1))
   done
+
+  _flush_word
+  out+=" ${RESET}"
   printf '%s' "$out"
 }
 
 # --- Main ---
 
-# Render the annotated command
-annotated=$(render_command "$command")
+main() {
+  local input command annotated json_escaped
 
-# JSON-escape: backslash first, then quotes, then control chars (RFC 8259)
-json_escaped="$annotated"
-json_escaped="${json_escaped//\\/\\\\}"
-json_escaped="${json_escaped//\"/\\\"}"
-json_escaped="${json_escaped//$'\033'/\\u001b}"
-json_escaped="${json_escaped//$'\n'/\\n}"
-json_escaped="${json_escaped//$'\r'/\\r}"
-json_escaped="${json_escaped//$'\t'/\\t}"
-# Strip remaining control chars U+0000-U+001F (except those already escaped above)
-json_escaped=$(printf '%s' "$json_escaped" | tr -d '\000-\010\013\014\016-\032\034-\037')
+  # Read JSON and extract command
+  input=$(cat)
+  command=$(_extract_json_string "$input" "command") || true
+  [ -z "$command" ] && exit 0
+  command=$(_unescape_json_string "$command")
 
-echo "{\"systemMessage\": \"${json_escaped}\"}"
+  # Collapse whitespace to spaces so the annotation stays on a single visible
+  # line. The executed command is unaffected — this only shapes the display.
+  command="${command//[$'\n\r\t']/ }"
+  while [[ "$command" == *"  "* ]]; do command="${command//  / }"; done
+
+  # Render the annotated command
+  annotated=$(render_command "$command")
+
+  # JSON-escape: backslash first, then quotes, then control chars (RFC 8259)
+  json_escaped="$annotated"
+  json_escaped="${json_escaped//\\/\\\\}"
+  json_escaped="${json_escaped//\"/\\\"}"
+  json_escaped="${json_escaped//$'\033'/\\u001b}"
+  json_escaped="${json_escaped//$'\n'/\\n}"
+  json_escaped="${json_escaped//$'\r'/\\r}"
+  json_escaped="${json_escaped//$'\t'/\\t}"
+  # Strip remaining control chars U+0000-U+001F (except those already escaped above)
+  json_escaped=$(printf '%s' "$json_escaped" | tr -d '\000-\010\013\014\016-\032\034-\037')
+
+  echo "{\"systemMessage\": \"${json_escaped}\"}"
+}
+
+# Execute only when run directly (not sourced). Never break the tool call:
+# any unexpected error exits 0 so the hook stays invisible on failure.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  trap 'exit 0' ERR
+  main
+fi

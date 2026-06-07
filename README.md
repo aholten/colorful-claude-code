@@ -33,8 +33,7 @@ Over time, you'll start recognizing commands by their colors before you even rea
 | Emoji | Category | Examples |
 |-------|----------|----------|
 | 🔀 | Version control | `git` |
-| 📦 | Package managers | `npm`, `npx`, `pnpm` |
-| 🧶 | Yarn | `yarn` |
+| 📦 | Package managers | `npm`, `npx`, `pnpm`, `yarn` |
 | 🐳 | Containers | `docker` |
 | 🐍 | Python | `python`, `pip` |
 | 🦀 | Rust | `cargo`, `rustc` |
@@ -47,7 +46,8 @@ Over time, you'll start recognizing commands by their colors before you even rea
 | 📁 | Navigation | `cd` |
 | 📋 | Listing | `ls` |
 | 🐱 | Reading files | `cat` |
-| 🔍 | Searching | `grep`, `find` |
+| 🔍 | Searching | `grep`, `rg` |
+| 🔎 | Finding files | `find`, `fd` |
 | 💬 | Output | `echo` |
 | 🗑️ | Deleting | `rm` |
 | ⚡ | Elevated privileges | `sudo` |
@@ -67,6 +67,10 @@ Operators between commands are also annotated:
 
 Commands that aren't in the map still get a neutral background color so the full command remains visually consistent.
 
+Nesting is visualized too: content inside matched pairs — `"quotes"`, `'quotes'`, `` `backticks` ``, `$(substitutions)`, `(subshells)`, `{groups}` — renders with a partially transparent version of the command's background color, one opacity step per nesting level (full → 55% → 30%, capped there). A quoted argument to `git` fades through translucent oranges while a quoted `echo` fades through grays. At a glance you can see exactly where a string or substitution begins and ends.
+
+Terminal cells can't render true transparency, so the effect is an alpha blend baked into the color: on terminals that advertise 24-bit color (`COLORTERM=truecolor`) the blend is computed exactly from the real Okabe-Ito RGB values; elsewhere it falls back to stepped 256-color shades. Force a mode with `COLORFUL_COLOR_MODE=truecolor` or `COLORFUL_COLOR_MODE=256` if the auto-detection guesses wrong for your terminal.
+
 ## How it works
 
 This is a [Claude Code plugin](https://code.claude.com/docs/en/plugins) that uses a [hook](https://code.claude.com/docs/en/hooks) — a script that runs automatically before Claude Code executes a Bash command. It does not change what the command does. It only adds a visual annotation so you can see what's happening.
@@ -75,7 +79,7 @@ The plugin:
 
 1. Receives the command Claude Code is about to run
 2. Parses it into individual commands, operators, and nested expressions
-3. Looks up each command in a mapping file (`command-map.json`)
+3. Looks up each command in its built-in emoji/color map
 4. Displays the annotated version with emoji and colors
 
 It handles compound commands (`cd /app && npm install`), pipes (`cat file | grep error`), command substitutions (`echo $(date)`), and subshells (`(git add . && git commit)`).
@@ -117,7 +121,7 @@ claude --plugin-dir .
 
 > "install this plugin"
 
-`CLAUDE.md` tells Claude how to register the hook — it will ask whether you want local (this project only) or global (all projects), edit the right settings file, validate it, and smoke-test the hook.
+The bundled install skill (`skills/install/SKILL.md`) walks Claude through it: it first checks whether your environment allows custom hooks at all (some managed/corporate setups don't — see Watcher mode below), then asks whether you want local (this project only) or global (all projects) scope, edits the right settings file, validates it, and smoke-tests the hook.
 
 ## Update
 
@@ -148,6 +152,8 @@ If installed from source, either ask Claude ("uninstall this plugin") or run:
 
 Some organizations set `allowManagedHooksOnly=true`, which prevents custom user hooks from running. The watcher script is a workaround — it tails Claude Code's JSONL conversation log from a separate terminal and prints the same colorful emoji annotations whenever a Bash command is executed.
 
+You don't need to figure this out yourself: when you ask Claude to install the plugin, the install skill detects managed policy first and sets up watcher mode instead of a hook that would silently never fire.
+
 ### Quick start
 
 Open a second terminal in your project directory and run:
@@ -174,8 +180,7 @@ Then just run `ccc` in a separate terminal while using Claude Code.
 
 ### Requirements
 
-- Python 3 (for JSON parsing of JSONL log entries)
-- Everything else from the base requirements above
+Same as the base requirements above — the watcher is pure bash too, reusing the hook's own JSON scanner to parse the log. No Python, no Node.js.
 
 ## Testing
 
@@ -188,10 +193,11 @@ The project includes a test suite to verify everything works:
 You can also run tests for specific components:
 
 ```bash
-./test.sh parser     # test command parsing
+./test.sh parser     # test command segmentation (operators, quotes, substitutions)
 ./test.sh mapping    # test emoji/color lookups
 ./test.sh renderer   # test colored output
 ./test.sh hook       # test the full hook pipeline
+./test.sh watcher    # test JSONL command extraction
 ```
 
 ## Project structure
@@ -202,13 +208,13 @@ colorful-claude-code/
 │   └── plugin.json          # Plugin manifest
 ├── hooks/
 │   └── hooks.json           # Hook configuration
+├── skills/
+│   └── install/
+│       └── SKILL.md         # Install skill — environment preflight, hook install, watcher fallback
 ├── scripts/
-│   ├── annotate-pre.sh      # Main hook — entry point called by Claude Code
-│   ├── parser.sh            # Splits commands into tokens
-│   ├── renderer.sh          # Applies emoji and colors to tokens
+│   ├── annotate-pre.sh      # Main hook — parsing, mapping, and rendering in one script
 │   └── watcher.sh           # Standalone log watcher for restricted environments
-├── command-map.json         # Emoji and color mapping for ~40 commands
-├── CLAUDE.md                # Onboarding instructions Claude reads when you ask it to install
+├── CLAUDE.md                # Onboarding pointers Claude reads when you ask it to install
 ├── uninstall.sh             # Non-interactive uninstall
 ├── test.sh                  # Test suite
 ├── LICENSE                  # MIT
@@ -217,17 +223,17 @@ colorful-claude-code/
 
 ## Adding or changing command mappings
 
-The file `command-map.json` contains every command-to-emoji mapping. Each entry looks like this:
+The live command-to-emoji mappings are the `_lookup` and `_lookup_op` tables inside `scripts/annotate-pre.sh` — the hook is pure bash with zero runtime dependencies, so the map is built in rather than read from a file. Each entry looks like this:
 
-```json
-"git": { "emoji": "🔀", "bg": 202, "fg": 17 }
+```bash
+git)                echo "🔀 214 16"  ;;
 ```
 
-- `emoji` — The emoji shown before the command
-- `bg` — Background color (256-color ANSI code)
-- `fg` — Foreground text color, chosen to contrast with the background
+- First field — the emoji shown before the command (`_` means no emoji)
+- Second — background color (256-color ANSI code)
+- Third — foreground text color, chosen to contrast with the background
 
-You can edit this file to add new commands, change emoji, or adjust colors. Changes take effect immediately — no need to reinstall.
+Edit those tables to add new commands, change emoji, or adjust colors. Changes take effect on the next command — no need to reinstall. The background colors follow the Okabe-Ito colorblind-safe palette (documented in the comment above `_lookup`), so if you add a command, pick the existing category color that matches what it does.
 
 ## Tuning output width
 

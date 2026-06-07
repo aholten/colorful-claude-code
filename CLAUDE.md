@@ -12,7 +12,7 @@ Edit the same settings file. Remove only the matcher entry whose command referen
 
 ## Customizing command → emoji mappings
 
-The live mappings are the `_lookup` and `_lookup_op` case tables in `scripts/annotate-pre.sh` (format: `emoji bg fg`, where `_` means no emoji). If the user asks to add or change a command mapping, edit those tables. `command-map.json` is a categorized reference of the mapping design — it is NOT read by the hook, so editing it alone changes nothing.
+All mappings are the `_lookup` and `_lookup_op` case tables in `scripts/annotate-pre.sh` (format: `emoji bg fg`, where `_` means no emoji). If the user asks to add or change a command mapping, edit those tables. Background colors must stay within the Okabe-Ito CVD-safe palette documented in the comment above `_lookup` — pick the category color that matches what the command *does*.
 
 ## Watcher mode (for restricted environments)
 

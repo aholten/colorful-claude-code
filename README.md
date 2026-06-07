@@ -33,8 +33,7 @@ Over time, you'll start recognizing commands by their colors before you even rea
 | Emoji | Category | Examples |
 |-------|----------|----------|
 | 🔀 | Version control | `git` |
-| 📦 | Package managers | `npm`, `npx`, `pnpm` |
-| 🧶 | Yarn | `yarn` |
+| 📦 | Package managers | `npm`, `npx`, `pnpm`, `yarn` |
 | 🐳 | Containers | `docker` |
 | 🐍 | Python | `python`, `pip` |
 | 🦀 | Rust | `cargo`, `rustc` |
@@ -47,7 +46,8 @@ Over time, you'll start recognizing commands by their colors before you even rea
 | 📁 | Navigation | `cd` |
 | 📋 | Listing | `ls` |
 | 🐱 | Reading files | `cat` |
-| 🔍 | Searching | `grep`, `find` |
+| 🔍 | Searching | `grep`, `rg` |
+| 🔎 | Finding files | `find`, `fd` |
 | 💬 | Output | `echo` |
 | 🗑️ | Deleting | `rm` |
 | ⚡ | Elevated privileges | `sudo` |
@@ -210,7 +210,6 @@ colorful-claude-code/
 ├── scripts/
 │   ├── annotate-pre.sh      # Main hook — parsing, mapping, and rendering in one script
 │   └── watcher.sh           # Standalone log watcher for restricted environments
-├── command-map.json         # Categorized mapping reference (live map is in annotate-pre.sh)
 ├── CLAUDE.md                # Onboarding pointers Claude reads when you ask it to install
 ├── uninstall.sh             # Non-interactive uninstall
 ├── test.sh                  # Test suite
@@ -230,7 +229,7 @@ git)                echo "🔀 214 16"  ;;
 - Second — background color (256-color ANSI code)
 - Third — foreground text color, chosen to contrast with the background
 
-Edit those tables to add new commands, change emoji, or adjust colors. Changes take effect on the next command — no need to reinstall. (`command-map.json` is a categorized reference of the mapping design and is not currently read by the hook.)
+Edit those tables to add new commands, change emoji, or adjust colors. Changes take effect on the next command — no need to reinstall. The background colors follow the Okabe-Ito colorblind-safe palette (documented in the comment above `_lookup`), so if you add a command, pick the existing category color that matches what it does.
 
 ## Tuning output width
 

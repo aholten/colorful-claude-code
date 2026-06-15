@@ -1,6 +1,8 @@
 # Colorful Claude Code
 
-Enhanced understanding at a glance.
+**Emoji + colorblind-safe color annotations on every Bash command Claude Code runs — so you can read what's happening at a glance.** A single PreToolUse hook. 100% shell, zero runtime dependencies. Runs on macOS, Linux, and Windows (Git Bash / mintty, WSL, and the VS Code terminal).
+
+![Claude Code annotating a compound Bash command live — each segment tagged with an emoji and a color-coded background, operators marked, and nested substitutions dimmed](docs/demo.gif)
 
 When Claude Code runs terminal commands on your behalf, it can be hard to follow what's happening — especially if you're not familiar with the command line. Commands flash by, and unless you already know what `grep`, `sed`, or `chmod` means, you're left wondering what just happened on your computer.
 
@@ -87,52 +89,63 @@ It handles compound commands (`cd /app && npm install`), pipes (`cat file | grep
 ## Requirements
 
 - Claude Code v1.0.33 or later
-- Bash (included with macOS, Linux, Git Bash on Windows, and WSL)
-- A terminal that supports emoji and 256-color ANSI codes (most modern terminals do)
+- Bash — nothing newer than the version macOS already ships (3.2); no bash-4 features used
+- A terminal that supports emoji and 256-color ANSI codes (most modern terminals do); 24-bit truecolor is used when available and falls back automatically
 
-No other dependencies. No Node.js, no Python, nothing to download.
+**100% shell, zero runtime dependencies.** No Node.js, no Python, nothing to download or build — the entire plugin is a handful of `.sh` files. That also means it runs anywhere a POSIX-ish bash does:
+
+| Platform | Terminals |
+|----------|-----------|
+| **macOS** | Terminal.app, iTerm2 |
+| **Linux** | most terminal emulators |
+| **Windows** | Git Bash (mintty) and the VS Code integrated terminal — both confirmed — plus WSL |
 
 ## Install
 
+You don't need to clone anything first — just ask Claude.
+
+### Install by asking (nothing to clone)
+
+In any Claude Code session, paste:
+
+> Clone and install the colorful-claude-code plugin from https://github.com/aholten/colorful-claude-code
+
+Claude clones the repo to a stable location, then follows the bundled install skill (`skills/install/SKILL.md`): it checks whether your environment even allows custom hooks (some managed/corporate setups don't — see Watcher mode below), asks local (this project) vs global (everywhere) scope, registers the hook, validates the settings file, and smoke-tests it. Nothing manual on your end.
+
 ### From the Claude Code plugin marketplace
 
-Once listed on the marketplace, install directly from Claude Code:
+```
+/plugin marketplace add aholten/colorful-claude-code
+/plugin install colorful-claude-code@aholten
+```
 
-```
-/plugin install colorful-claude-code
-```
+This repo doubles as its own one-plugin marketplace (`.claude-plugin/marketplace.json`), so the hook is auto-registered and the install skill loads automatically — it still runs the same environment preflight.
 
 ### Manual install (from source)
 
-1. Clone this repository:
+If you'd rather drive it yourself:
 
 ```bash
 git clone https://github.com/aholten/colorful-claude-code.git
 cd colorful-claude-code
+claude --plugin-dir .          # load for a single session
 ```
 
-2. Load it as a local plugin for a single session:
-
-```bash
-claude --plugin-dir .
-```
-
-3. Or, for a persistent install, open Claude Code in this directory and just ask:
-
-> "install this plugin"
-
-The bundled install skill (`skills/install/SKILL.md`) walks Claude through it: it first checks whether your environment allows custom hooks at all (some managed/corporate setups don't — see Watcher mode below), then asks whether you want local (this project only) or global (all projects) scope, edits the right settings file, validates it, and smoke-tests the hook.
+For a persistent install, open Claude Code in the directory and ask *"install this plugin"* — same skill, same preflight.
 
 ## Update
 
-If installed via the plugin marketplace, updates happen automatically.
+### Update by asking
 
-If installed from source:
+In any Claude Code session — you don't have to be in the repo directory — say:
 
-```bash
-cd colorful-claude-code
-git pull
-```
+> Update the colorful-claude-code plugin
+
+Claude locates the install from the hook path recorded in your Claude settings, pulls the latest, and re-checks that the hook still fires. The hook path doesn't change, so there's nothing to re-register.
+
+### Marketplace / manual
+
+Marketplace installs update through `/plugin` like any other plugin. A source clone updates with a plain `git pull` in the repo — changes take effect on the next command, no reinstall.
 
 ## Uninstall
 
@@ -147,6 +160,22 @@ If installed from source, either ask Claude ("uninstall this plugin") or run:
 ```bash
 ./uninstall.sh
 ```
+
+## Restricted environments
+
+Locked-down and corporate setups block things at different levels, and there's a working path for almost all of them. The install skill runs an environment preflight first and routes you automatically — you don't have to diagnose this yourself.
+
+| What your environment blocks | What still works | Where annotations show |
+|------------------------------|------------------|------------------------|
+| Nothing (normal setup) | Plugin **or** manual hook | Inline, in Claude Code |
+| Plugin installs (but hooks allowed) | **Manual hook** — just a `settings.json` entry plus a bash script; the plugin system isn't involved | Inline |
+| Custom hooks (`allowManagedHooksOnly` / `disableAllHooks`) | **Watcher mode** (below) — pure bash in a second terminal; it only *reads* `~/.claude/projects/`, which managed policy can't block, so no IT exception is needed | A side terminal |
+| Everything — a true sandbox (claude.ai/code remote, CI, a container with no second terminal or log access) | Nothing in-session | — it's a local-machine tool |
+
+Two things that help in tightly-managed networks:
+
+- **The fallbacks need neither the plugin system nor hooks.** The same restriction that blocks the plugin is exactly what the manual hook and watcher routes sidestep, so you're rarely fully stuck.
+- **Nothing phones home or downloads at runtime.** It's a handful of zero-dependency `.sh` files — if `git clone` is firewalled, copy them in by any means (internal mirror, zip, even paste).
 
 ## Watcher mode (hooks blocked by corp policy?)
 

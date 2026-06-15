@@ -5,6 +5,16 @@ description: Install colorful-claude-code or diagnose missing annotations. Use w
 
 # Install colorful-claude-code
 
+## Prerequisite — make sure the repo is actually present
+
+This skill assumes the plugin's files are on this machine. If you got here from a cold start (the user asked you to "clone and install colorful-claude-code" and there is no local working copy — no `scripts/annotate-pre.sh` reachable), clone it first, then continue:
+
+```bash
+git clone https://github.com/aholten/colorful-claude-code.git ~/.claude-plugins/colorful-claude-code
+```
+
+Any stable, persistent path works — the hook records an absolute path, so the location only needs to survive reboots. Use the cloned path as `<repo>` / `<absolute-path>` everywhere below. If the repo is already present (marketplace install, existing clone, or this is the repo's own session), skip this and go straight to Step 0.
+
 Run Step 0 BEFORE asking the user anything (including the local/global scope question) and BEFORE editing any settings file. In managed or sandboxed environments the hook approach is dead on arrival — a hook install would appear to succeed and then silently never fire, and the user would have answered setup questions for nothing.
 
 ## Step 0 — Environment preflight (always run first)
@@ -46,7 +56,7 @@ No managed policy, hooks enabled, local machine → proceed to **Hook install**.
 
 First determine how the plugin got here:
 
-- **Marketplace install** (`/plugin install colorful-claude-code`): the hook is already auto-registered via `hooks/hooks.json`. Don't edit any settings file — skip straight to the smoke test (step 5).
+- **Marketplace install** (`/plugin marketplace add aholten/colorful-claude-code` then `/plugin install colorful-claude-code@aholten`): the hook is already auto-registered via `hooks/hooks.json`. Don't edit any settings file — skip straight to the smoke test (step 5).
 - **Source checkout** (this repo cloned locally): follow all steps.
 
 1. **Verify Claude Code version is ≥ 1.0.33.** Run `claude --version`. Older versions don't support the hook format below.

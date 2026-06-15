@@ -1,0 +1,14 @@
+{
+  "name": "aholten",
+  "owner": {
+    "name": "Anthony Holten"
+  },
+  "description": "Anthony Holten's Claude Code plugins.",
+  "plugins": [
+    {
+      "name": "colorful-claude-code",
+      "source": ".",
+      "description": "Adds emoji + color annotations to Bash commands via a PreToolUse hook. No runtime deps."
+    }
+  ]
+}

@@ -6,6 +6,10 @@ Claude Code plugin that adds emoji + color annotations to Bash commands via a Pr
 
 Follow `skills/install/SKILL.md`. It begins with a required environment preflight (Step 0) that detects managed policy (`allowManagedHooksOnly`, `disableAllHooks`) and sandboxed sessions, and routes to watcher mode when hooks can't run. Do not skip Step 0 and do not ask the user any setup questions before it completes.
 
+## When the user asks to update
+
+Follow `skills/update/SKILL.md`. The key idea: you don't need the session to be inside the repo. Find the install location from the hook command path in the user's Claude settings (`~/.claude/settings.json`, then project settings) — the `command` field reads `bash <repo>/scripts/annotate-pre.sh`, so the `<repo>` dir is right there. `git -C <repo> pull --ff-only`, then re-run the install smoke test (Step 5 of `skills/install/SKILL.md`) to confirm the hook still fires. The hook path is unchanged by a pull, so never re-register the hook. If no `annotate-pre.sh` hook is found in any settings file, the plugin isn't installed — offer to install instead.
+
 ## When the user asks to uninstall
 
 Edit the same settings file. Remove only the matcher entry whose command references `scripts/annotate-pre.sh` in this repo — leave any unrelated hooks alone. If that was the only PreToolUse entry, remove the now-empty `PreToolUse` array (and the `hooks` object if it's empty too). `uninstall.sh` is still available as a non-interactive alternative.
